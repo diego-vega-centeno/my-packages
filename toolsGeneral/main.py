@@ -1,7 +1,11 @@
 import os
 import json
 import pathlib
-from unidecode import unidecode
+from itertools import combinations
+
+
+def complement(lis1, lis2):
+    return set(lis1).difference(set(lis2))
 
 
 def dump(path:str, data):
@@ -50,6 +54,8 @@ def intersection(pair) -> list:
 
 
 def camelize(name: str) -> str:
+    from unidecode import unidecode
+
     # remove diacritics
     stringNorma = unidecode(name)
     
@@ -59,3 +65,18 @@ def camelize(name: str) -> str:
     stringNorma = ''.join(stringNorma)
 
     return stringNorma
+
+def findDuplicates(list):
+    seen = []
+    dup = []
+    for id in list:
+        if id in seen:
+            dup.append(id)
+        seen.append(id)
+    
+    return dup
+
+def findIntersection(lists):
+    tuples = list(combinations(lists,2))
+    tuplesInterBools = list(map(lambda ele : bool(intersection(ele)), tuples))
+    return [x for x,y in zip(tuples, tuplesInterBools) if y == True]
