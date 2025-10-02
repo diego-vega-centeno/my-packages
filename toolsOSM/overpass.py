@@ -1,6 +1,7 @@
 import requests
 import os
 import json
+import copy
 
 def getOSMIDAddsStruct(relId: str, lvls: list):
 
@@ -87,8 +88,15 @@ def getOSMAddsTRecursedown(relId: str, lvls: list):
 
     return res.json()
 
-# def makeAddsTree(idList, dataIndex):
-#     return {id: {**dataIndex[id], "childs":(makeAddsTree(relsDataIndex[id]["childs"], dataIndex) if id in indexKeys else {})} for id in idList }
+def makeJSTree(idList, childsIndex, relsDataIndex):
+    # return 'D'
+    return [
+        {
+            "id": id,
+            "text": relsDataIndex.get(id)['tags']['name'],
+            "children": makeJSTree(childsIndex.get(id,[]), childsIndex, relsDataIndex)
+        } for id in idList
+    ]
 
 def makeTree(ids, childsIndex):
     
@@ -105,3 +113,12 @@ def makeHTMLTree(ids, childsIndex, relsDataIndex):
     html =  ''.join(f"""<ul><li id="osm-rel-{id}">{next((relsDataIndex[id]['tags'][key] for key in ['name:en','name'] if key in relsDataIndex[id]['tags']))}{makeHTMLTree(childsIndex.get(id, []), childsIndex, relsDataIndex)}</li></ul>""" for id in ids)
 
     return html
+
+def normalizeOSM(raw):
+    normalized = copy.deepcopy(raw)
+    normalized = { str(ele['id']) : ele for ele in raw['elements']}
+    for id in normalized.keys():
+        normalized[id]['id'] = str(normalized[id]['id'])
+    return normalized
+
+    
