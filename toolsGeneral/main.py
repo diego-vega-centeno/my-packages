@@ -2,14 +2,10 @@ import os
 import json
 import pathlib
 from itertools import combinations
-
-
-def complement(lis1, lis2):
-    return set(lis1).difference(set(lis2))
-
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
 def dump(path:str, data):
-    if not os.path.exists(os.path.dirname(path)):
+    if not os.path.exists(os.path.dirname(path)) and not os.path.dirname(path) == '':
         os.makedirs(os.path.dirname(path))
 
     with open(path, "w", encoding='utf-8') as file:
@@ -76,7 +72,44 @@ def findDuplicates(list):
     
     return dup
 
+def deleteDuplicates(lis):
+
+    seen = list()
+    unique = []
+    
+    for ele in lis:
+        if ele not in seen:
+            unique.append(ele)
+            seen.append(ele)
+    
+    return unique
+
+def complement(lis1, lis2):
+    
+    comple = []
+    for ele in lis1:
+        if ele not in lis2:
+            comple.append(ele)
+
+    return comple
+
 def findIntersection(lists):
     tuples = list(combinations(lists,2))
     tuplesInterBools = list(map(lambda ele : bool(intersection(ele)), tuples))
     return [x for x,y in zip(tuples, tuplesInterBools) if y == True]
+
+
+def getFirst(dictio, options):
+    return next((dictio[key] for key in options if key in dictio), None)
+
+def tryFunction(function, arg, timeout=3):
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(function, arg)
+        try:
+            print(f"processing: {arg} ...")
+            result = future.result(timeout=timeout)
+            print("finished: success")
+            return result # Set a timeout for each call
+        except TimeoutError:
+            print(f"finished: timeout")
+            return 0
