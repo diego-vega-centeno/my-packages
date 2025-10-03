@@ -3,26 +3,37 @@ import json
 import pathlib
 from itertools import combinations
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
+import pickle
 
 def dump(path:str, data):
     if not os.path.exists(os.path.dirname(path)) and not os.path.dirname(path) == '':
         os.makedirs(os.path.dirname(path))
 
-    with open(path, "w", encoding='utf-8') as file:
-        if(pathlib.Path(path).suffix == ".json"):  
-            json.dump(data, file, indent=2)
-        if(pathlib.Path(path).suffix == ".html"):  
-            file.write(data)
+    match pathlib.Path(path).suffix:
+      case ".json":
+        with open(path, "w", encoding='utf-8') as file:
+          json.dump(data, file, indent=2)
+      case ".html":
+        with open(path, "w", encoding='utf-8') as file:
+          file.write(data)
+      case ".pkl":
+        with open(path, 'wb') as file:
+          pickle.dump(data, file)
+
 
 def load(path:str):
     
-    with open(path, 'r',  encoding="utf8") as fl:
 
-        match pathlib.Path(path).suffix:
-            case '.json':
-                return json.load(fl)
-            case '.html':
-                return fl.read()
+  match pathlib.Path(path).suffix:
+    case '.json':
+      with open(path, 'r',  encoding="utf8") as file:
+        return json.load(file)
+    case '.html':
+      with open(path, 'r',  encoding="utf8") as file:
+        return file.read()
+    case '.pkl':
+      with open(path, 'rb') as file:
+        return pickle.load(file)
 
     
 def sortDictKeys(dict, keys):
@@ -102,7 +113,7 @@ def findIntersection(lists):
 def getFirst(dictio, options):
     return next((dictio[key] for key in options if key in dictio), None)
 
-def tryFunction(function, arg, timeout=3):
+def tryFunction(function, arg, timeout=60):
     with ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(function, arg)
         try:
