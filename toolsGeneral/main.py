@@ -4,6 +4,9 @@ import pathlib
 from itertools import combinations
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 import pickle
+import unicodedata
+import re
+
 
 def dump(path:str, data):
     if not os.path.exists(os.path.dirname(path)) and not os.path.dirname(path) == '':
@@ -74,14 +77,14 @@ def camelize(name: str) -> str:
     return stringNorma
 
 def findDuplicates(list):
-    seen = []
-    dup = []
-    for id in list:
-        if id in seen:
-            dup.append(id)
-        seen.append(id)
+    seen = set()
+    duplicates = set()
+    for item in list:
+        if item in seen:
+            duplicates.add(item)
+        seen.add(item)
     
-    return dup
+    return duplicates
 
 def deleteDuplicates(lis):
 
@@ -124,3 +127,12 @@ def tryFunction(function, arg, timeout=60):
         except TimeoutError:
             print(f"finished: timeout")
             return 0
+
+
+def normalize_country_name(name: str) -> str:
+    # Remove accents
+    name = unicodedata.normalize("NFKD", name)
+    name = "".join(c for c in name if not unicodedata.combining(c))
+    # Remove spaces and punctuation, lowercase first letter
+    name = re.sub(r"[\s\W_]+", "", name)
+    return name

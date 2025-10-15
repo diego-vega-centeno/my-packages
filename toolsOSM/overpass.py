@@ -2,6 +2,8 @@ import requests
 import os
 import json
 import copy
+import pandas as pd
+import time
 
 def getOSMIDAddsStruct(relId: str, lvls: list):
 
@@ -157,4 +159,81 @@ def normalizeOSM(raw):
         normalized[id]['id'] = str(normalized[id]['id'])
     return normalized
 
-    
+
+def getCenterNodeInsideParent(childId, parentId):
+  endPoint = "http://overpass-api.de/api/interpreter"
+  
+  centerRes = getCenter(childId)
+
+  if centerRes['status'] == 'ok':
+    center = centerRes['data']['elements'][0]['center']
+    lat, lon = center['lat'], center['lon']
+  else:
+    return {"status": "error", "error_type": "missing_center", 'data': centerRes}
+  
+  query = f"""
+    [out:json][timeout:300];
+
+    is_in({lat}, {lon})->.areas;
+    rel(pivot.areas)(id:{parentId});
+    out ids;
+  """
+  
+  try:
+    time.sleep(5)
+    response = requests.get(endPoint, params={'data': query})
+    response.raise_for_status()
+  except requests.exceptions.Timeout:
+    return {'status':'error', 'error_type':'network_timeout','data':None}
+  except requests.RequestException as e:
+    return {'status':'error', 'error_type':str(e),'data':None}
+  
+  try:
+    data = response.json()
+  except ValueError:
+    return {'status':'error','error_type':'invalid_json','data':None}
+  
+  # check overpass internal response
+  if "remark" in data and "timed out" in data["remark"].lower():
+    return {"status": "error", "error_type": "overpass_timeout", "data": data}
+  if len(data['elements']) == 0:
+    return {"status": "error", "error_type": "missing_elements", "data": data}
+  
+  
+  return {"status": "ok", "data": data}
+
+def normalizeOSM(elems):
+  df = pd.json_normalize(elems)
+  df['id'] = df['id'].fillna('').astype(str)
+  return df
+
+def getCenter(id):
+  endPoint = "http://overpass-api.de/api/interpreter"
+  query = f"""
+    [out:json][timeout:300];
+
+    rel({id});
+    out center;
+  """
+  
+  try:
+    time.sleep(5)
+    response = requests.get(endPoint, params={'data': query})
+    response.raise_for_status()
+  except requests.exceptions.Timeout:
+    return {'status':'error', 'error_type':'network_timeout','data':None}
+  except requests.RequestException as e:
+    return {'status':'error', 'error_type':str(e),'data':None}
+  
+  try:
+    data = response.json()
+  except ValueError:
+    return {'status':'error','error_type':'invalid_json','data':None}
+  
+  # check overpass internal response
+  if "remark" in data and "timed out" in data["remark"].lower():
+    return {"status": "error", "error_type": "overpass_timeout", "data": data}
+  if len(data['elements']) == 0:
+    return {"status": "error", "error_type": "missing_elements", "data": data}
+  
+  return {"status": "ok", "data": data}
