@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError
 import pickle
 import unicodedata
 import re
+from collections import Counter
 
 
 def dump(path:str, data):
@@ -25,8 +26,6 @@ def dump(path:str, data):
 
 
 def load(path:str):
-    
-
   match pathlib.Path(path).suffix:
     case '.json':
       with open(path, 'r',  encoding="utf8") as file:
@@ -76,15 +75,13 @@ def camelize(name: str) -> str:
 
     return stringNorma
 
-def findDuplicates(list):
-    seen = set()
-    duplicates = set()
-    for item in list:
-        if item in seen:
-            duplicates.add(item)
-        seen.add(item)
-    
-    return duplicates
+def count_duplicates(list):
+    counts = Counter(list)
+    dupes = {item: count for item, count in counts.items() if count > 1}
+    return dupes
+
+def list_diff(list1, list2):
+    return [complement(list1,list2),intersection([list1,list2]),complement(list2,list1)]
 
 def deleteDuplicates(lis):
 
@@ -100,14 +97,10 @@ def deleteDuplicates(lis):
 
 def complement(lis1, lis2):
     
-    comple = []
-    for ele in lis1:
-        if ele not in lis2:
-            comple.append(ele)
+    lis2_set = set(lis2)
+    return [ele for ele in lis1 if ele not in lis2_set]
 
-    return comple
-
-def findIntersection(lists):
+def lists_Intersection(lists):
     tuples = list(combinations(lists,2))
     tuplesInterBools = list(map(lambda ele : bool(intersection(ele)), tuples))
     return [x for x,y in zip(tuples, tuplesInterBools) if y == True]
