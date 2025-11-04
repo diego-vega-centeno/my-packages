@@ -214,36 +214,73 @@ def is_centroid_inside_parent(childId, parentId):
 
 def is_center_inside_parent(child_id, parent_id):
 
+    #* try admin_centre and label first
+    #* if they are empty then use node[place]
+    #! [old query]
+    # query = f"""
+    #     [out:json][timeout:300];
+    #     rel({child_id})->.r;
+    #     (
+    #     node(r.r:"admin_centre");
+    #     node(r.r:"label");
+    #     )->.candidates;
+
+    #     .candidates out ids;
+    # """
+
     query = f"""
         [out:json][timeout:300];
         rel({child_id})->.r;
-        (
+        
         node(r.r:"admin_centre");
-        node(r.r:"label");
-        );
+		convert node ::id = id(), role='admin_centre';
+		out tags;
 
-        if(count(.candidates) == 0) {{
-            node(r.r)[place]->.candidates;
-        }}
-        out ids;
+		node(r.r:"label");
+		convert node ::id = id(), role='label';
+		out tags;
     """
-    logger.info("   * Getting center of child:")
+    logger.info("   * Getting admin_centre and label:")
     node_center_res = osm_query_safe_wrapper(query)
+    if(node_center_res['status'] == "error"): return node_center_res
 
     if node_center_res["status"] == "ok" and len(node_center_res["data"]["elements"]) > 0:
-        # use first found one in this order: ['admin_centre','label','place']
-        center_id = node_center_res["data"]["elements"][0]["id"]
-    elif node_center_res["status"] == "ok" and len(node_center_res["data"]["elements"]) == 0:
-        logger.info("   * missing ['admin_centre' 'label']; fallback to centroid test")
-        return is_centroid_inside_parent(child_id, parent_id)
-    else:
-        return {"status": "error", "error_type": "missing_center", "data": node_center_res['data']}
+        #* try 'admin_centre'
+        center_ac_id = [ele for ele in node_center_res["data"]["elements"] if ele['tags']['role'] == "admin_centre"][0]["id"]
+        is_inside_res = is_node_inside_rel(center_ac_id, parent_id)
+
+        if(is_inside_res['status'] == "error"): return is_inside_res
+        if is_inside_res['result']: return is_inside_res
+        
+        #* try 'label'
+        center_ac_label = [ele for ele in node_center_res["data"]["elements"] if ele['tags']['role'] == "label"][0]["id"]
+        is_inside_res = is_node_inside_rel(center_ac_label, parent_id)
+
+        if(is_inside_res['status'] == "error"): return is_inside_res
+        if is_inside_res['result']: return is_inside_res
 
     query = f"""
         [out:json][timeout:300];
-        rel({parent_id});
+        rel({child_id})->.r;
+        node(r.r)[place];
+        out ids;
+    """
+    if node_center_res["status"] == "ok" and len(node_center_res["data"]["elements"]) == 0:
+    #* try labels
+
+        logger.info("   * missing ['admin_centre','label','place']; fallback to centroid test")
+        return is_centroid_inside_parent(child_id, parent_id)
+    else:
+        return {"status": "error", "result": "missing_center", "data": node_center_res['data']}
+
+
+
+def is_node_inside_rel(node_id, rel_id):
+    query = f"""
+        [out:json][timeout:300];
+        rel({rel_id});
         map_to_area;
-        node({center_id})->.testnode;
+        node({node_id})->.testnode;
         node.testnode(area);
         out ids;
     """
@@ -255,7 +292,7 @@ def is_center_inside_parent(child_id, parent_id):
         return {'status':'ok', 'result': False}
     elif result['status'] == 'ok':
         found_node_id = result['data']['elements'][0]['id']
-        if found_node_id == center_id:
+        if found_node_id == node_id:
             return {'status':'ok', 'result': True}
         else:
             return {'status':'ok', 'result': False}
