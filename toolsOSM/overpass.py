@@ -4,7 +4,9 @@ import json
 import copy
 import pandas as pd
 import time
+import logging
 
+logger = logging.getLogger('dup_test_logger')
 
 def getOSMIDAddsStruct(relId: str, lvls: list):
 
@@ -169,8 +171,10 @@ def makeHTMLTree(ids, childsIndex, relsDataIndex):
 #     return normalized
 
 
-def getCenterNodeInsideParent(childId, parentId, logger):
+def is_centroid_inside_parent(childId, parentId):
 
+    #* this uses the centroid 'center' of the relation
+    #* is not necessarily inside the child
     query = f"""
         [out:json][timeout:300];
 
@@ -178,14 +182,13 @@ def getCenterNodeInsideParent(childId, parentId, logger):
         out center;
     """
     logger.info("   * Getting center of child: ")
-    centerRes = osm_query_safe_wrapper(query, logger)
+    centerRes = osm_query_safe_wrapper(query)
     
     if centerRes["status"] == "ok" and len(centerRes["data"]["elements"])>0:
         center = centerRes["data"]["elements"][0]["center"]
         lat, lon = center["lat"], center["lon"]
     else:
         return {"status": "error", "error_type": "missing_center", "data": centerRes['data']}
-
     query = f"""
         [out:json][timeout:300];
 
@@ -194,9 +197,71 @@ def getCenterNodeInsideParent(childId, parentId, logger):
         out ids;
     """
     logger.info("   * Getting parent that contains center: ")
-    result = osm_query_safe_wrapper(query, logger)
+    result = osm_query_safe_wrapper(query)
+
+    # check result if parent contains child
+    if result['status'] == 'ok' and len(result['data']['elements']) == 0:
+        return {'status':'ok', 'result': False}
+    elif result['status'] == 'ok':
+        parent = result['data']['elements'][0]
+        if str(parent['id']) == parentId:
+            return {'status':'ok', 'result': True}
+        else:
+            return {'status':'ok', 'result': False}
+
+    # forward other results
     return result
 
+def is_center_inside_parent(child_id, parent_id):
+
+    query = f"""
+        [out:json][timeout:300];
+        rel({child_id})->.r;
+        (
+        node(r.r:"admin_centre");
+        node(r.r:"label");
+        );
+
+        if(count(.candidates) == 0) {{
+            node(r.r)[place]->.candidates;
+        }}
+        out ids;
+    """
+    logger.info("   * Getting center of child:")
+    node_center_res = osm_query_safe_wrapper(query)
+
+    if node_center_res["status"] == "ok" and len(node_center_res["data"]["elements"]) > 0:
+        # use first found one in this order: ['admin_centre','label','place']
+        center_id = node_center_res["data"]["elements"][0]["id"]
+    elif node_center_res["status"] == "ok" and len(node_center_res["data"]["elements"]) == 0:
+        logger.info("   * missing ['admin_centre' 'label']; fallback to centroid test")
+        return is_centroid_inside_parent(child_id, parent_id)
+    else:
+        return {"status": "error", "error_type": "missing_center", "data": node_center_res['data']}
+
+    query = f"""
+        [out:json][timeout:300];
+        rel({parent_id});
+        map_to_area;
+        node({center_id})->.testnode;
+        node.testnode(area);
+        out ids;
+    """
+    logger.info("   * Getting parent that contains center: ")
+    result = osm_query_safe_wrapper(query)
+
+    # check result if parent contains child
+    if result['status'] == 'ok' and len(result['data']['elements']) == 0:
+        return {'status':'ok', 'result': False}
+    elif result['status'] == 'ok':
+        found_node_id = result['data']['elements'][0]['id']
+        if found_node_id == center_id:
+            return {'status':'ok', 'result': True}
+        else:
+            return {'status':'ok', 'result': False}
+
+    # forward other results
+    return result
 
 def normalizeOSM(elems):
     df = pd.json_normalize(elems)
@@ -232,7 +297,7 @@ def normalizeOSM(elems):
     return df
 
 
-def osm_query_safe_wrapper(query, logger, max_retries=5, ):
+def osm_query_safe_wrapper(query, max_retries=5):
 
     endPoint = "http://overpass-api.de/api/interpreter"
 
@@ -248,7 +313,7 @@ def osm_query_safe_wrapper(query, logger, max_retries=5, ):
                 raise Exception("overpass_timeout")
             
             # success return
-            # print(f" - Attempt {attempt+1} sucess")
+            logger.info(f"   * ok")
             return {"status": "ok", "data": data}
         
         except requests.exceptions.Timeout:
@@ -261,4 +326,4 @@ def osm_query_safe_wrapper(query, logger, max_retries=5, ):
         logger.info(f"   * Attempt {attempt+1} failed: {error_type}")
         time.sleep(min(2**attempt, 15))
 
-    return {"status": "error", "error_type": error_type, "data": None}
+    return {"status": "error", "result": error_type, "data": None}
