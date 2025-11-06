@@ -213,15 +213,7 @@ def is_centroid_inside_parent(childId, parentId):
     return result
 
 def _test_node_type(child_id, parent_id, node_type, query):
-    """
-    {
-        'status': 'ok' | 'error' | 'missing',
-        'result': True | False | None,  # Only present when status='ok'
-        'status_type': str | None,  # Only present when status='error'
-        'data': dict | None  # Original query data if needed
-        'node_id': int | None
-    }
-    """
+
     logger.info(f"   * Getting {node_type}:")
     query_result = osm_query_safe_wrapper(query)
     
@@ -230,9 +222,8 @@ def _test_node_type(child_id, parent_id, node_type, query):
         return {
             'status': 'error',
             'result': None,
-            'status_type': f"Error getting {node_type}: {query_result.get('status_type')}",
-            'data': query_result.get('data'),
-            'node_id': None
+            'status_type': f"Error getting [{node_type}]: {query_result.get('status_type')}",
+            'node': []
         }
     
     # query succeeded but no nodes found
@@ -241,16 +232,15 @@ def _test_node_type(child_id, parent_id, node_type, query):
             'status': 'missing',
             'result': None,
             'status_type': 'missing_node',
-            'data': None,
-            'node_id': None
+            'node': []
         }
     
     # node found - test if it's inside parent
     node_id = query_result['data']['elements'][0]['id']
     logger.info(f"   * Testing {node_type} node (id: {node_id})")
-    test_result = is_node_inside_rel(node_id, parent_id)
+    test_result = is_node_inside_rel(node_id, parent_id, node_type)
     # Add node_id to the normalized result from is_node_inside_rel
-    test_result['node_id'] = node_id
+    test_result['node'] = [node_type, node_id]
 
     return test_result
 
@@ -310,15 +300,8 @@ def is_center_inside_parent(child_id, parent_id):
 
 
 
-def is_node_inside_rel(node_id, rel_id):
-    """
-    {
-        'status': 'ok' | 'error',
-        'result': True | False | None,  # Only when status='ok'
-        'status_type': str | None,  # Only when status='error'
-        'data': dict | None
-    }
-    """
+def is_node_inside_rel(node_id, rel_id, node_type):
+
     query = f"""
         [out:json][timeout:300];
         rel({rel_id});
@@ -335,7 +318,6 @@ def is_node_inside_rel(node_id, rel_id):
             'status': 'ok',
             'result': False,
             'status_type': None,
-            'data': None
         }
     elif result['status'] == 'ok':
         found_node_id = result['data']['elements'][0]['id']
@@ -343,15 +325,13 @@ def is_node_inside_rel(node_id, rel_id):
             'status': 'ok',
             'result': (found_node_id == node_id),
             'status_type': None,
-            'data': result.get('data')
         }
     else:
         # error case - normalize to consistent structure
         return {
             'status': 'error',
             'result': None,
-            'status_type': f"Error testing node inside: {result.get('status_type')}",
-            'data': result.get('data')
+            'status_type': f"Error testing node inside [{node_type}]: {result.get('status_type')}",
         }
 
 def normalizeOSM(elems):
