@@ -45,20 +45,20 @@ def getOSMIDAddsStruct(relId: str, lvls: list):
         response = requests.get(endPoint, params={"data": query})
         response.raise_for_status()
     except requests.exceptions.Timeout:
-        return {"status": "error", "error_type": "network_timeout", "data": None}
+        return {"status": "error", "status_type": "network_timeout", "data": None}
     except requests.RequestException as e:
-        return {"status": "error", "error_type": str(e), "data": None}
+        return {"status": "error", "status_type": str(e), "data": None}
 
     try:
         data = response.json()
     except ValueError:
-        return {"status": "error", "error_type": "invalid_json", "data": None}
+        return {"status": "error", "status_type": "invalid_json", "data": None}
 
     # check overpass internal response
     if "remark" in data and "timed out" in data["remark"].lower():
-        return {"status": "error", "error_type": "overpass_timeout", "data": data}
+        return {"status": "error", "status_type": "overpass_timeout", "data": data}
     if len(data["elements"]) == 0:
-        return {"status": "error", "error_type": "missing_elements", "data": data}
+        return {"status": "error", "status_type": "missing_elements", "data": data}
 
     return {"status": "ok", "data": data}
 
@@ -112,20 +112,20 @@ def getOSMAddsTRecursedown(relId: str, lvls: list):
         response = requests.get(endPoint, params={"data": query})
         response.raise_for_status()
     except requests.exceptions.Timeout:
-        return {"status": "error", "error_type": "network_timeout", "data": None}
+        return {"status": "error", "status_type": "network_timeout", "data": None}
     except requests.RequestException as e:
-        return {"status": "error", "error_type": str(e), "data": None}
+        return {"status": "error", "status_type": str(e), "data": None}
 
     try:
         data = response.json()
     except ValueError:
-        return {"status": "error", "error_type": "invalid_json", "data": None}
+        return {"status": "error", "status_type": "invalid_json", "data": None}
 
     # check overpass internal response
     if "remark" in data and "timed out" in data["remark"].lower():
-        return {"status": "error", "error_type": "overpass_timeout", "data": data}
+        return {"status": "error", "status_type": "overpass_timeout", "data": data}
     if len(data["elements"]) == 0:
-        return {"status": "error", "error_type": "missing_elements", "data": data}
+        return {"status": "error", "status_type": "missing_elements", "data": data}
 
     return {"status": "ok", "data": data}
 
@@ -173,7 +173,7 @@ def makeHTMLTree(ids, childsIndex, relsDataIndex):
 
 def is_centroid_inside_parent(childId, parentId):
 
-    #* this uses the centroid 'center' of the relation
+    #* this uses the centroid of the relation
     #* is not necessarily inside the child
     query = f"""
         [out:json][timeout:300];
@@ -188,7 +188,7 @@ def is_centroid_inside_parent(childId, parentId):
         center = centerRes["data"]["elements"][0]["center"]
         lat, lon = center["lat"], center["lon"]
     else:
-        return {"status": "error", "error_type": "missing_center", "data": centerRes['data']}
+        return {"status": "error", "status_type": "missing_center", "data": centerRes['data']}
     query = f"""
         [out:json][timeout:300];
 
@@ -212,70 +212,113 @@ def is_centroid_inside_parent(childId, parentId):
     # forward other results
     return result
 
+def _test_node_type(child_id, parent_id, node_type, query):
+    """
+    {
+        'status': 'ok' | 'error' | 'missing',
+        'result': True | False | None,  # Only present when status='ok'
+        'status_type': str | None,  # Only present when status='error'
+        'data': dict | None  # Original query data if needed
+        'node_id': int | None
+    }
+    """
+    logger.info(f"   * Getting {node_type}:")
+    query_result = osm_query_safe_wrapper(query)
+    
+    # failed (network error, timeout, etc.)
+    if query_result['status'] != "ok":
+        return {
+            'status': 'error',
+            'result': None,
+            'status_type': f"Error getting {node_type}: {query_result.get('status_type')}",
+            'data': query_result.get('data'),
+            'node_id': None
+        }
+    
+    # query succeeded but no nodes found
+    if len(query_result['data']['elements']) == 0:
+        return {
+            'status': 'missing',
+            'result': None,
+            'status_type': 'missing_node',
+            'data': None,
+            'node_id': None
+        }
+    
+    # node found - test if it's inside parent
+    node_id = query_result['data']['elements'][0]['id']
+    logger.info(f"   * Testing {node_type} node (id: {node_id})")
+    test_result = is_node_inside_rel(node_id, parent_id)
+    # Add node_id to the normalized result from is_node_inside_rel
+    test_result['node_id'] = node_id
+
+    return test_result
+
+
 def is_center_inside_parent(child_id, parent_id):
 
-    #* try admin_centre and label first
-    #* if they are empty then use node[place]
-    #! [old query]
+    results = {}
+
+    # Test admin_centre
+    query = f"""
+        [out:json][timeout:300];
+        rel({child_id})->.r;
+        node(r.r:"admin_centre");
+		out tags;
+    """
+    results["admin_centre"] = _test_node_type(child_id, parent_id, "admin_centre", query)
+
     # query = f"""
     #     [out:json][timeout:300];
     #     rel({child_id})->.r;
-    #     (
-    #     node(r.r:"admin_centre");
-    #     node(r.r:"label");
-    #     )->.candidates;
-
-    #     .candidates out ids;
+	# 	node(r.r:"label");
+	# 	convert node ::id = id(), role='label';
+	# 	out tags;
     # """
-
-    query = f"""
-        [out:json][timeout:300];
-        rel({child_id})->.r;
-        
-        node(r.r:"admin_centre");
-		convert node ::id = id(), role='admin_centre';
-		out tags;
-
-		node(r.r:"label");
-		convert node ::id = id(), role='label';
-		out tags;
-    """
-    logger.info("   * Getting admin_centre and label:")
-    node_center_res = osm_query_safe_wrapper(query)
-    if(node_center_res['status'] == "error"): return node_center_res
-
-    if node_center_res["status"] == "ok" and len(node_center_res["data"]["elements"]) > 0:
-        #* try 'admin_centre'
-        center_ac_id = [ele for ele in node_center_res["data"]["elements"] if ele['tags']['role'] == "admin_centre"][0]["id"]
-        is_inside_res = is_node_inside_rel(center_ac_id, parent_id)
-
-        if(is_inside_res['status'] == "error"): return is_inside_res
-        if is_inside_res['result']: return is_inside_res
-        
-        #* try 'label'
-        center_ac_label = [ele for ele in node_center_res["data"]["elements"] if ele['tags']['role'] == "label"][0]["id"]
-        is_inside_res = is_node_inside_rel(center_ac_label, parent_id)
-
-        if(is_inside_res['status'] == "error"): return is_inside_res
-        if is_inside_res['result']: return is_inside_res
-
-    query = f"""
-        [out:json][timeout:300];
-        rel({child_id})->.r;
-        node(r.r)[place];
-        out ids;
-    """
-    if node_center_res["status"] == "ok" and len(node_center_res["data"]["elements"]) == 0:
-    #* try labels
-
-        logger.info("   * missing ['admin_centre','label','place']; fallback to centroid test")
-        return is_centroid_inside_parent(child_id, parent_id)
-    else:
-        return {"status": "error", "result": "missing_center", "data": node_center_res['data']}
+    # # Test label node
+    # label_id = _extract_node_by_role(node_center_res, "label")
+    # results['label'] = _test_node_and_format_result(label_id, parent_id, "label")
+    
+    # # Test place node
+    # logger.info("   * Getting nodes with place tag")
+    # query = f"""
+    #     [out:json][timeout:300];
+    #     rel({child_id})->.r;
+    #     node(r.r)[place];
+    #     out ids 1;
+    # """
+    # node_place_res = osm_query_safe_wrapper(query)
+    
+    # if node_place_res['status'] == "error":
+    #     results['place'] = {"status": "error", "status_type": node_place_res.get('result'), "node_id": None}
+    # elif node_place_res["status"] == "ok" and len(node_place_res["data"]["elements"]) > 0:
+    #     place_id = node_place_res['data']["elements"][0]["id"]
+    #     results['place'] = _test_node_and_format_result(place_id, parent_id, "place")
+    # else:
+    #     results['place'] = {"status": "missing", "node_id": None}
+    
+    # # Evaluate results: check if any returned True or error
+    # evaluation_result = _evaluate_node_test_results(results)
+    # if evaluation_result:
+    #     return evaluation_result
+    
+    # # All nodes returned False or were missing - fallback to centroid test
+    # logger.info("   * All nodes returned False or missing; fallback to centroid test")
+    # centroid_result = is_centroid_inside_parent(child_id, parent_id)
+    
+    return results
 
 
 
 def is_node_inside_rel(node_id, rel_id):
+    """
+    {
+        'status': 'ok' | 'error',
+        'result': True | False | None,  # Only when status='ok'
+        'status_type': str | None,  # Only when status='error'
+        'data': dict | None
+    }
+    """
     query = f"""
         [out:json][timeout:300];
         rel({rel_id});
@@ -284,21 +327,32 @@ def is_node_inside_rel(node_id, rel_id):
         node.testnode(area);
         out ids;
     """
-    logger.info("   * Getting parent that contains center: ")
     result = osm_query_safe_wrapper(query)
 
-    # check result if parent contains child
+    # normalize results - always return consistent structure
     if result['status'] == 'ok' and len(result['data']['elements']) == 0:
-        return {'status':'ok', 'result': False}
+        return {
+            'status': 'ok',
+            'result': False,
+            'status_type': None,
+            'data': None
+        }
     elif result['status'] == 'ok':
         found_node_id = result['data']['elements'][0]['id']
-        if found_node_id == node_id:
-            return {'status':'ok', 'result': True}
-        else:
-            return {'status':'ok', 'result': False}
-
-    # forward other results
-    return result
+        return {
+            'status': 'ok',
+            'result': (found_node_id == node_id),
+            'status_type': None,
+            'data': result.get('data')
+        }
+    else:
+        # error case - normalize to consistent structure
+        return {
+            'status': 'error',
+            'result': None,
+            'status_type': f"Error testing node inside: {result.get('status_type')}",
+            'data': result.get('data')
+        }
 
 def normalizeOSM(elems):
     df = pd.json_normalize(elems)
@@ -351,16 +405,18 @@ def osm_query_safe_wrapper(query, max_retries=5):
             
             # success return
             logger.info(f"   * ok")
-            return {"status": "ok", "data": data}
-        
-        except requests.exceptions.Timeout:
-            error_type = "network_timeout"
-        except requests.exceptions.RequestException as e:
-            error_type = f"http_error: {e}"
-        except Exception as e:
-            error_type = str(e)
+            return {"status": "ok", "status_type": None, "data": data}
 
-        logger.info(f"   * Attempt {attempt+1} failed: {error_type}")
+        except requests.exceptions.Timeout:
+            status_type = "network_timeout"
+        except requests.exceptions.RequestException as e:
+            status_type = f"http_error: {e}"
+            if e.response.status_code == 400:
+                break
+        except Exception as e:
+            status_type = str(e)
+
+        logger.info(f"   * Attempt {attempt+1} failed: {status_type}")
         time.sleep(min(2**attempt, 15))
 
-    return {"status": "error", "result": error_type, "data": None}
+    return {"status": "error", "status_type": status_type, "data": None}
