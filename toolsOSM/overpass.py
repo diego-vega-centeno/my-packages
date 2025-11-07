@@ -188,7 +188,7 @@ def is_centroid_inside_parent(childId, parentId):
         center = centerRes["data"]["elements"][0]["center"]
         lat, lon = center["lat"], center["lon"]
     else:
-        return {"status": "error", "status_type": "missing_center", "data": centerRes['data']}
+        return {"status": "error", "status_type": "missing_center"}
     query = f"""
         [out:json][timeout:300];
 
@@ -223,7 +223,7 @@ def _test_node_type(child_id, parent_id, node_type, query):
             'status': 'error',
             'result': None,
             'status_type': f"Error getting [{node_type}]: {query_result.get('status_type')}",
-            'node': []
+            'node': [node_type, None]
         }
     
     # query succeeded but no nodes found
@@ -232,32 +232,19 @@ def _test_node_type(child_id, parent_id, node_type, query):
             'status': 'missing',
             'result': None,
             'status_type': 'missing_node',
-            'node': []
+            'node': [node_type, None]
         }
     
     # node found - test if it's inside parent
     node_id = query_result['data']['elements'][0]['id']
     logger.info(f"   * Testing {node_type} node (id: {node_id})")
     test_result = is_node_inside_rel(node_id, parent_id, node_type)
-    # Add node_id to the normalized result from is_node_inside_rel
-    test_result['node'] = [node_type, node_id]
 
     return test_result
 
 
 def is_center_inside_parent(child_id, parent_id):
-
-    results = {}
-
-    # Test admin_centre
-    query = f"""
-        [out:json][timeout:300];
-        rel({child_id})->.r;
-        node(r.r:"admin_centre");
-		out tags;
-    """
-    results["admin_centre"] = _test_node_type(child_id, parent_id, "admin_centre", query)
-
+    # [OLD]
     # query = f"""
     #     [out:json][timeout:300];
     #     rel({child_id})->.r;
@@ -265,36 +252,35 @@ def is_center_inside_parent(child_id, parent_id):
 	# 	convert node ::id = id(), role='label';
 	# 	out tags;
     # """
-    # # Test label node
-    # label_id = _extract_node_by_role(node_center_res, "label")
-    # results['label'] = _test_node_and_format_result(label_id, parent_id, "label")
-    
-    # # Test place node
-    # logger.info("   * Getting nodes with place tag")
-    # query = f"""
-    #     [out:json][timeout:300];
-    #     rel({child_id})->.r;
-    #     node(r.r)[place];
-    #     out ids 1;
-    # """
-    # node_place_res = osm_query_safe_wrapper(query)
-    
-    # if node_place_res['status'] == "error":
-    #     results['place'] = {"status": "error", "status_type": node_place_res.get('result'), "node_id": None}
-    # elif node_place_res["status"] == "ok" and len(node_place_res["data"]["elements"]) > 0:
-    #     place_id = node_place_res['data']["elements"][0]["id"]
-    #     results['place'] = _test_node_and_format_result(place_id, parent_id, "place")
-    # else:
-    #     results['place'] = {"status": "missing", "node_id": None}
-    
-    # # Evaluate results: check if any returned True or error
-    # evaluation_result = _evaluate_node_test_results(results)
-    # if evaluation_result:
-    #     return evaluation_result
-    
-    # # All nodes returned False or were missing - fallback to centroid test
-    # logger.info("   * All nodes returned False or missing; fallback to centroid test")
-    # centroid_result = is_centroid_inside_parent(child_id, parent_id)
+
+    results = {}
+
+    # Test admin_centre node
+    query = f"""
+        [out:json][timeout:300];
+        rel({child_id})->.r;
+        node(r.r:"admin_centre");
+		out ids 1;
+    """
+    results["admin_centre"] = _test_node_type(child_id, parent_id, "admin_centre", query)
+
+    # Test label node
+    query = f"""
+        [out:json][timeout:300];
+        rel({child_id})->.r;
+        node(r.r:"label");
+		out ids 1;
+    """
+    results["label"] = _test_node_type(child_id, parent_id, "label", query)
+
+    # Test place node
+    query = f"""
+        [out:json][timeout:300];
+        rel({child_id})->.r;
+        node(r.r)[place];
+		out ids 1;
+    """
+    results["place"] = _test_node_type(child_id, parent_id, "place", query)
     
     return results
 
@@ -318,6 +304,7 @@ def is_node_inside_rel(node_id, rel_id, node_type):
             'status': 'ok',
             'result': False,
             'status_type': None,
+            'node': [node_type, node_id]
         }
     elif result['status'] == 'ok':
         found_node_id = result['data']['elements'][0]['id']
@@ -325,6 +312,7 @@ def is_node_inside_rel(node_id, rel_id, node_type):
             'status': 'ok',
             'result': (found_node_id == node_id),
             'status_type': None,
+            'node': [node_type, node_id]
         }
     else:
         # error case - normalize to consistent structure
@@ -332,6 +320,7 @@ def is_node_inside_rel(node_id, rel_id, node_type):
             'status': 'error',
             'result': None,
             'status_type': f"Error testing node inside [{node_type}]: {result.get('status_type')}",
+            'node': [node_type, node_id]
         }
 
 def normalizeOSM(elems):
