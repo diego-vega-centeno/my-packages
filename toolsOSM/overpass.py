@@ -170,7 +170,7 @@ def makeHTMLTree(ids, childsIndex, relsDataIndex):
 #         normalized[id]["id"] = str(normalized[id]["id"])
 #     return normalized
 
-
+#*  [OLD]
 def is_centroid_inside_parent(childId, parentId):
 
     #* this uses the centroid of the relation
@@ -216,18 +216,20 @@ def _test_node_type(child_id, parent_id, node_type, query):
 
     logger.info(f"   * Getting {node_type}:")
     query_result = osm_query_safe_wrapper(query)
-    
+
     # failed (network error, timeout, etc.)
     if query_result['status'] != "ok":
+        logger.info(f"    * Error getting ({node_type}): {query_result.get('status_type')}")
         return {
             'status': 'error',
             'result': None,
-            'status_type': f"Error getting [{node_type}]: {query_result.get('status_type')}",
+            'status_type': f"Error getting ({node_type}): {query_result.get('status_type')}",
             'node': [node_type, None]
         }
-    
+
     # query succeeded but no nodes found
     if len(query_result['data']['elements']) == 0:
+        logger.info(f"    * Missing node ({node_type})")
         return {
             'status': 'missing',
             'result': None,
@@ -236,14 +238,21 @@ def _test_node_type(child_id, parent_id, node_type, query):
         }
     
     # node found - test if it's inside parent
-    node_id = query_result['data']['elements'][0]['id']
-    logger.info(f"   * Testing {node_type} node (id: {node_id})")
-    test_result = is_node_inside_rel(node_id, parent_id, node_type)
+    logger.info(f"    * Found node ({node_type})")
+    if node_type == 'centroid':
+        center = query_result["data"]["elements"][0]["center"]
+        lat, lon = center["lat"], center["lon"]
+        logger.info(f"   * Testing {node_type} (lat: {lat}, lon: {lon})")
+        test_result = is_node_inside_rel([lat, lon], parent_id, node_type)
+    else:
+        node_id = query_result['data']['elements'][0]['id']
+        logger.info(f"   * Testing {node_type} node (id: {node_id})")
+        test_result = is_node_inside_rel(node_id, parent_id, node_type)
 
     return test_result
 
 
-def is_center_inside_parent(child_id, parent_id):
+def is_child_inside_parent(child_id, parent_id):
     # [OLD]
     # query = f"""
     #     [out:json][timeout:300];
@@ -281,6 +290,25 @@ def is_center_inside_parent(child_id, parent_id):
 		out ids 1;
     """
     results["place"] = _test_node_type(child_id, parent_id, "place", query)
+
+    # Test node part of geometry
+    query = f"""
+        [out:json][timeout:300];
+        rel({child_id})->.r;
+        way(r.r)->.w;
+        node(w.w);
+		out ids 1;
+    """
+    results["geom_node"] = _test_node_type(child_id, parent_id, "geom_node", query)
+
+    # Test centroid
+    query = f"""
+        [out:json][timeout:300];
+
+        rel({child_id});
+        out center;
+    """
+    results["centroid"] = _test_node_type(child_id, parent_id, "centroid", query)
     
     return results
 
@@ -296,10 +324,20 @@ def is_node_inside_rel(node_id, rel_id, node_type):
         node.testnode(area);
         out ids;
     """
+
+    if node_type == 'centroid':
+        query = f"""
+            [out:json][timeout:300];
+
+            is_in({node_id[0]}, {node_id[1]})->.areas;
+            rel(pivot.areas)(id:{rel_id});
+            out ids;
+        """
     result = osm_query_safe_wrapper(query)
 
     # normalize results - always return consistent structure
     if result['status'] == 'ok' and len(result['data']['elements']) == 0:
+        logger.info(f"    * Finished testing ({node_type}): False")
         return {
             'status': 'ok',
             'result': False,
@@ -307,15 +345,26 @@ def is_node_inside_rel(node_id, rel_id, node_type):
             'node': [node_type, node_id]
         }
     elif result['status'] == 'ok':
-        found_node_id = result['data']['elements'][0]['id']
+        found_element = result['data']['elements'][0]
+        found_id = found_element['id']
+        
+        # For centroid, check if found relation matches parent_id
+        # For nodes, check if found node matches the node_id
+        if node_type == 'centroid':
+            result_value = (str(found_id) == str(rel_id))
+        else:
+            result_value = (found_id == node_id)
+        
+        logger.info(f"    * Finished testing ({node_type}): {result_value}")
         return {
             'status': 'ok',
-            'result': (found_node_id == node_id),
+            'result': result_value,
             'status_type': None,
             'node': [node_type, node_id]
         }
     else:
         # error case - normalize to consistent structure
+        logger.info(f"    * Error testing ({node_type}): {result.get('status_type')}")
         return {
             'status': 'error',
             'result': None,
@@ -373,7 +422,6 @@ def osm_query_safe_wrapper(query, max_retries=5):
                 raise Exception("overpass_timeout")
             
             # success return
-            logger.info(f"   * ok")
             return {"status": "ok", "status_type": None, "data": data}
 
         except requests.exceptions.Timeout:
