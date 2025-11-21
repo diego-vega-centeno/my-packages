@@ -40,27 +40,12 @@ def getOSMIDAddsStruct(relId: str, lvls: list):
             out tags;
         }};
     """
+    query_res = osm_query_safe_wrapper(query)
 
-    try:
-        response = requests.get(endPoint, params={"data": query})
-        response.raise_for_status()
-    except requests.exceptions.Timeout:
-        return {"status": "error", "status_type": "network_timeout", "data": None}
-    except requests.RequestException as e:
-        return {"status": "error", "status_type": str(e), "data": None}
+    if query_res['status'] == 'ok' and query_res['data']['elements'] == 0:
+        return {"status": "error", "status_type": "missing_elements", "data": query_res['data']}
 
-    try:
-        data = response.json()
-    except ValueError:
-        return {"status": "error", "status_type": "invalid_json", "data": None}
-
-    # check overpass internal response
-    if "remark" in data and "timed out" in data["remark"].lower():
-        return {"status": "error", "status_type": "overpass_timeout", "data": data}
-    if len(data["elements"]) == 0:
-        return {"status": "error", "status_type": "missing_elements", "data": data}
-
-    return {"status": "ok", "data": data}
+    return query_res
 
 
 def getOSMAdds(relId: str, lvls: list, type: str):
@@ -214,7 +199,7 @@ def is_centroid_inside_parent(childId, parentId):
 
 def _test_node_type(child_id, parent_id, node_type, query):
 
-    logger.info(f"   * Getting {node_type}:")
+    logger.info(f"   > Getting {node_type}:")
     query_result = osm_query_safe_wrapper(query)
 
     # failed (network error, timeout, etc.)
@@ -242,11 +227,11 @@ def _test_node_type(child_id, parent_id, node_type, query):
     if node_type == 'centroid':
         center = query_result["data"]["elements"][0]["center"]
         lat, lon = center["lat"], center["lon"]
-        logger.info(f"   * Testing {node_type} (lat: {lat}, lon: {lon})")
+        logger.info(f"   > Testing {node_type} (lat: {lat}, lon: {lon})")
         test_result = is_node_inside_rel([lat, lon], parent_id, node_type)
     else:
         node_id = query_result['data']['elements'][0]['id']
-        logger.info(f"   * Testing {node_type} node (id: {node_id})")
+        logger.info(f"   > Testing {node_type} node (id: {node_id})")
         test_result = is_node_inside_rel(node_id, parent_id, node_type)
 
     return test_result
@@ -382,7 +367,8 @@ def normalizeOSM(elems):
         'tags.admin_level',
         'tags.parent_id',
         'tags.name',
-        'tags.name:us',
+        'tags.name:en',
+        'tags.alt_name:en',
         'tags.ISO3166-1',
         'tags.ISO3166-2',
         'tags.is_in:country',

@@ -22,3 +22,6 @@ def df_peek(df,  height=500, width='100%'):
 
 def to_df(dict):
     return pd.DataFrame(dict)
+
+def get_from_df(df, columns, vals):
+    return df[(df[columns] == vals).all(axis=1)]
