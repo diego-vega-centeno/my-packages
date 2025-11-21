@@ -13,7 +13,7 @@ def getOSMIDAddsStruct(relId: str, lvls: list):
     endPoint = "http://overpass-api.de/api/interpreter"
 
     query = f"""
-        [timeout:3600][out:json];
+        [timeout:900][out:json];
 
         rel({relId});
         out tags;
@@ -60,7 +60,7 @@ def getOSMAddsTRecursedown(relId: str, lvls: list):
     endPoint = "http://overpass-api.de/api/interpreter"
 
     query = f"""
-        [timeout:3600][out:json];
+        [timeout:900][out:json];
 
         rel({relId});
         out tags;
@@ -398,7 +398,7 @@ def osm_query_safe_wrapper(query, max_retries=5):
 
     for attempt in range(max_retries):
         try:
-            response = requests.get(endPoint, params={"data": query}, timeout=60)
+            response = requests.get(endPoint, params={"data": query}, timeout=900)
             response.raise_for_status()
 
             data = response.json()
@@ -411,7 +411,7 @@ def osm_query_safe_wrapper(query, max_retries=5):
             return {"status": "ok", "status_type": None, "data": data}
 
         except requests.exceptions.Timeout:
-            status_type = "network_timeout"
+            status_type = "requests_timeout"
         except requests.exceptions.RequestException as e:
             status_type = f"http_error: {e}"
             if e.response.status_code == 400:
