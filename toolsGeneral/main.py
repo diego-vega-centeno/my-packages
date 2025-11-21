@@ -58,8 +58,8 @@ def dictRemoveKeys(inDict, keys):
     return dict(filter(lambda pair : pair[0] not in keys, inDict.items()))
 
 
-def intersection(pair) -> list:
-    return list(set(pair[0]).intersection(pair[1]))
+def intersection(list1, list2) -> list:
+    return list(set(list1).intersection(list2))
 
 
 def camelize(name: str) -> str:
@@ -81,7 +81,7 @@ def count_duplicates(list):
     return dupes
 
 def list_diff(list1, list2):
-    return [complement(list1,list2),intersection([list1,list2]),complement(list2,list1)]
+    return [complement(list1,list2),intersection(list1,list2),complement(list2,list1)]
 
 def deleteDuplicates(lis):
 
