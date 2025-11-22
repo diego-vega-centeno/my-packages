@@ -10,8 +10,6 @@ logger = logging.getLogger('dup_test_logger')
 
 def getOSMIDAddsStruct(relId: str, lvls: list):
 
-    endPoint = "http://overpass-api.de/api/interpreter"
-
     query = f"""
         [timeout:900][out:json];
 
@@ -47,6 +45,26 @@ def getOSMIDAddsStruct(relId: str, lvls: list):
 
     return query_res
 
+def get_add_lvls_from_id(id:str, lvl:str):
+
+    query = f"""
+        [timeout:900][out:json];
+
+        rel({id});
+        foreach{{
+            ._->.elem;
+            map_to_area;
+            rel[boundary=administrative][admin_level={lvl}](area);
+            convert rel ::id = id(), ::=::, parent_id=elem.set(id());
+            out tags;
+        }};
+    """
+    query_res = osm_query_safe_wrapper(query)
+    
+    if query_res['status'] == 'ok' and query_res['data']['elements'] == 0:
+        return {"status": "error", "status_type": "missing_elements", "data": query_res['data']}
+
+    return query_res
 
 def getOSMAdds(relId: str, lvls: list, type: str):
 
