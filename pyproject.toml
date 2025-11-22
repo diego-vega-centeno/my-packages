@@ -9,9 +9,5 @@ description = "My personal utility packages"
 readme = "README.md"
 requires-python = ">=3.9"
 
-[tool.setuptools]
-packages = [
-    "toolsOSM",
-    "toolsPandas",
-    "toolsGeneral"
-]
+[tool.setuptools.packages.find]
+where = ["src"]
