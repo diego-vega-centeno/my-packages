@@ -5,8 +5,10 @@ import copy
 import pandas as pd
 import time
 import logging
+import toolsGeneral.main as tgm
 
 logger = logging.getLogger('dup_test_logger')
+raw_scrape_logger = logging.getLogger('raw_scrape_logger')
 
 def getOSMIDAddsStruct(relId: str, lvls: list):
 
@@ -45,12 +47,95 @@ def getOSMIDAddsStruct(relId: str, lvls: list):
 
     return query_res
 
-def get_add_lvls_from_id(id:str, lvl:str):
+def fetch_level(from_lvl, to_lvl, parent_ids, base_path, chunk_start_index, chunk_size=20):
+    failed = set()
+    processed = set()
+    discovered = set()
+
+    # ids_to_process = [pid for pid in parent_ids if pid not in processed]
+    chunks = [parent_ids[i:i+chunk_size] for i in range(0, len(parent_ids), chunk_size)]
+    os.makedirs(base_path, exist_ok=True)
+
+    next_chunk_index = chunk_start_index
+
+    for chunk_idx, chunk in enumerate(chunks, start=chunk_start_index):
+        raw_scrape_logger.info(f" * processing {from_lvl} to {to_lvl}: chunk_{chunk_idx}")
+        res = get_add_lvls_from_id(chunk, to_lvl)
+        if res.get("status") != "ok":
+            failed.update(chunk)
+            continue
+        
+        processed.update(chunk)
+        tgm.dump(os.path.join(base_path, f'lvl_{to_lvl}_chunk_{chunk_idx}_rawOSMRes.json'),res)
+        next_chunk_index = chunk_idx + 1
+
+        elements = res["data"].get("elements", [])
+        if elements:
+            discovered.update(str(elem["id"]) for elem in elements if "id" in elem)
+
+        raw_scrape_logger.info(f"  * finished chunk_{chunk_idx}: {len(processed)}, failed: {len(failed)}, next level discovered: {len(discovered)}")
+        
+
+    raw_scrape_logger.info(f"  * finished lvl {from_lvl}-> processed:{len(processed)}, failed: {len(failed)}, next level discovered: {len(discovered)}")
+
+    return processed, next_chunk_index, failed, discovered
+
+def getOSMIDAddsStruct_chunks(tuple):
+    country, id, addLvls = tuple
+    base_path = os.path.join(os.getcwd(), '..', 'data/raw/osm countries queries', country)
+
+    lvls = ['2', *addLvls]
+    state_path = os.path.join(base_path, 'state.pkl')
+
+    if os.path.exists(state_path):
+        state = tgm.load(state_path)
+    else:
+        state = {}
+        for lvl in lvls:
+            state[lvl] = {"processed": set(), "failed": set(), "discovered": set(), "next_chunk_index": 0}
+
+    state['2']['discovered'] = {id}
+
+    country_osm_data = getOSMIDAddsStruct('286393', [-1,-1,-1])
+    tgm.dump(os.path.join(base_path, f'lvl_2_chunk_0_rawOSMRes.json'), country_osm_data)
+
+    def try_fetch_level(from_lvl, to_lvl, state):
+
+        pending = [id for id in state[from_lvl]['discovered'] if id not in state[from_lvl]['processed']]
+
+        while pending:
+            processed, next_chunk_index, failed, discovered = fetch_level(
+                from_lvl=from_lvl, 
+                to_lvl=to_lvl,
+                parent_ids=pending,
+                base_path=base_path,
+                chunk_start_index=state[from_lvl]['next_chunk_index'],
+                chunk_size=20
+            )
+
+            state[from_lvl]['processed'].update(processed)
+            state[from_lvl]['failed'].update(failed)
+            state[from_lvl]['next_chunk_index'] = next_chunk_index
+
+            state[to_lvl]['discovered'].update(discovered)
+
+            tgm.dump(os.path.join(base_path, 'state.pkl'), state)
+
+            pending = failed
+
+            if failed:
+                print(f"Retrying {len(failed)} failed IDs...")
+
+    try_fetch_level('2', '4', state)
+    try_fetch_level('4', '6', state)
+    try_fetch_level('6', '8', state)
+
+def get_add_lvls_from_id(ids:list, lvl:str):
 
     query = f"""
         [timeout:900][out:json];
 
-        rel({id});
+        rel(id:{','.join(ids)});
         foreach{{
             ._->.elem;
             map_to_area;
@@ -432,7 +517,7 @@ def osm_query_safe_wrapper(query, max_retries=5):
             status_type = "requests_timeout"
         except requests.exceptions.RequestException as e:
             status_type = f"http_error: {e}"
-            if e.response.status_code == 400:
+            if getattr(e.response, "status_code", None) == 400:
                 break
         except Exception as e:
             status_type = str(e)
