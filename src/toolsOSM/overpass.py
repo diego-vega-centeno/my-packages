@@ -66,7 +66,7 @@ def fetch_level(from_lvl, to_lvl, parent_ids, base_path, chunk_start_index, chun
             continue
         
         processed.update(chunk)
-        tgm.dump(os.path.join(base_path, f'lvl_{to_lvl}_chunk_{chunk_idx}_rawOSMRes.json'),res)
+        tgm.dump(os.path.join(base_path, f'lvl_{to_lvl}_chunk_{chunk_idx}_rawOSMRes.json'),res['data']['elements'])
         next_chunk_index = chunk_idx + 1
 
         elements = res["data"].get("elements", [])
