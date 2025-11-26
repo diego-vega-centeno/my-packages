@@ -73,7 +73,8 @@ def fetch_level(from_lvl, to_lvl, parent_ids, base_path, chunk_start_index, chun
             next_chunk_index = chunk_idx + 1
             discovered.update(str(elem["id"]) for elem in elements if "id" in elem)
 
-        raw_scrape_logger.info(f"  * finished chunk_{chunk_idx}: {len(processed)}, failed: {len(failed)}, next level discovered: {len(discovered)}")
+        raw_scrape_logger.info(f"  * finished chunk_{chunk_idx}")
+        raw_scrape_logger.info(f"   * processed: {len(processed)}, failed: {len(failed)}, next level discovered: {len(discovered)}")
         
 
     raw_scrape_logger.info(f" * finished lvl {from_lvl}-> processed:{len(processed)}, failed: {len(failed)}, next level discovered: {len(discovered)}")
