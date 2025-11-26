@@ -66,17 +66,17 @@ def fetch_level(from_lvl, to_lvl, parent_ids, base_path, chunk_start_index, chun
             continue
         
         processed.update(chunk)
-        tgm.dump(os.path.join(base_path, f'lvl_{to_lvl}_chunk_{chunk_idx}_rawOSMRes.json'),res['data']['elements'])
-        next_chunk_index = chunk_idx + 1
-
+        tgm.dump(os.path.join(base_path, f'lvl_{to_lvl}_chunk_{chunk_idx}_rawOSMRes.json'), res['data'])
+        
         elements = res["data"].get("elements", [])
         if elements:
+            next_chunk_index = chunk_idx + 1
             discovered.update(str(elem["id"]) for elem in elements if "id" in elem)
 
         raw_scrape_logger.info(f"  * finished chunk_{chunk_idx}: {len(processed)}, failed: {len(failed)}, next level discovered: {len(discovered)}")
         
 
-    raw_scrape_logger.info(f"  * finished lvl {from_lvl}-> processed:{len(processed)}, failed: {len(failed)}, next level discovered: {len(discovered)}")
+    raw_scrape_logger.info(f" * finished lvl {from_lvl}-> processed:{len(processed)}, failed: {len(failed)}, next level discovered: {len(discovered)}")
 
     return processed, next_chunk_index, failed, discovered
 
@@ -96,8 +96,8 @@ def getOSMIDAddsStruct_chunks(tuple):
 
     state['2']['discovered'] = {id}
 
-    country_osm_data = getOSMIDAddsStruct('286393', [-1,-1,-1])
-    tgm.dump(os.path.join(base_path, f'lvl_2_chunk_0_rawOSMRes.json'), country_osm_data)
+    country_osm_data = getOSMIDAddsStruct(id, [-1,-1,-1])
+    tgm.dump(os.path.join(base_path, f'lvl_2_chunk_0_rawOSMRes.json'), country_osm_data['data'])
 
     def try_fetch_level(from_lvl, to_lvl, state):
 
