@@ -130,6 +130,34 @@ def getOSMIDAddsStruct_chunks(tuple):
     try_fetch_level('4', '6', state)
     try_fetch_level('6', '8', state)
 
+    return state
+
+def fetch_admin_osm_structure(tuple, method='simple'):
+    failed_countries_path = os.path.join(os.getcwd(), '..', 'data/raw/failed_countries.pkl')
+    failed_countries = tgm.load(failed_countries_path) if os.path.exists(failed_countries_path) else []
+
+    country, id, addLvls = tuple
+    raw_scrape_logger.info(f"* processing: {country, id, addLvls}")
+
+    match method:
+        case 'simple':
+            response = getOSMIDAddsStruct(id, addLvls)
+            raw_scrape_logger.info(f"  - finished: {response["status"]}")
+            save_path = os.path.join(os.getcwd(), '..', 'data/raw/osm countries queries', country, f'rawOSMRes.json')
+            if response["status"] == "ok":
+                tgm.dump(save_path, response["data"])
+            elif '429 Client Error' in response["status_type"]:
+                raw_scrape_logger.info(f"  - Too many requests error, trying chunks")
+                response = getOSMIDAddsStruct_chunks(tuple)
+            else:
+                failed_countries[country] = {"id": tuple, "response": response}
+                tgm.dump(failed_countries_path, failed_countries)
+        case 'chunks':
+            response = getOSMIDAddsStruct_chunks(tuple)
+
+    time.sleep(3)
+    return response
+
 def get_add_lvls_from_id(ids:list, lvl:str):
 
     query = f"""
