@@ -147,7 +147,7 @@ def getOSMIDAddsStruct_chunks(tuple, save_dir:Path):
 
 def fetch_admin_osm_structure(tuple, save_dir:Path, method='simple'):
     failed_countries_path = save_dir / 'failed_countries.pkl'
-    failed_countries = tgm.load(failed_countries_path) if os.path.exists(failed_countries_path) else []
+    failed_countries = tgm.load(failed_countries_path) if os.path.exists(failed_countries_path) else {}
 
     country, id, addLvls = tuple
     raw_scrape_logger.info(f"* processing: {country, id, addLvls}")
