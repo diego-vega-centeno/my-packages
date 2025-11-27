@@ -7,6 +7,7 @@ import time
 import logging
 import toolsGeneral.main as tgm
 from IPython.display import clear_output
+from pathlib import Path
 
 logger = logging.getLogger('dup_test_logger')
 raw_scrape_logger = logging.getLogger('raw_scrape_logger')
@@ -48,18 +49,19 @@ def getOSMIDAddsStruct(relId: str, lvls: list):
 
     return query_res
 
-def fetch_level(from_lvl, to_lvl, parent_ids, base_path, chunk_start_index, state, chunk_size=20):
+def fetch_level_in_chunks(from_lvl, to_lvl, parent_ids, save_dir:Path, chunk_start_index, state, chunk_size=20):
     failed = set()
     processed = set()
     discovered = set()
 
     # ids_to_process = [pid for pid in parent_ids if pid not in processed]
     chunks = [parent_ids[i:i+chunk_size] for i in range(0, len(parent_ids), chunk_size)]
-    os.makedirs(base_path, exist_ok=True)
+    os.makedirs(save_dir, exist_ok=True)
 
     next_chunk_index = chunk_start_index
     raw_scrape_logger.info(f" > processing {from_lvl} to {to_lvl}:")
-    raw_scrape_logger.info(f"  * ids in current level ({from_lvl}): {len(state[from_lvl]['discovered'])}, ids to process: {len(parent_ids)}, current chunks = {len(chunks)}")
+    raw_scrape_logger.info(f"  * ids in level ({from_lvl}): {len(state[from_lvl]['discovered'])}:")
+    raw_scrape_logger.info(f"  * current ids to process: {len(parent_ids)}, number of chunks = {len(chunks)}")
     
     
     for chunk_idx, chunk in enumerate(chunks, start=chunk_start_index):
@@ -88,8 +90,8 @@ def fetch_level(from_lvl, to_lvl, parent_ids, base_path, chunk_start_index, stat
 
         # save data
         raw_scrape_logger.info(f"   * saving...")
-        tgm.dump(os.path.join(base_path, f'lvl_{to_lvl}_chunk_{chunk_idx}_rawOSMRes.json'), res['data'])
-        tgm.dump(os.path.join(base_path, 'state.pkl'), state)
+        tgm.dump(os.path.join(save_dir / f'lvl_{to_lvl}_chunk_{chunk_idx}_rawOSMRes.json'), res['data'])
+        tgm.dump(os.path.join(save_dir / 'state.pkl'), state)
 
         raw_scrape_logger.info(f"   * processed: {len(processed)}, failed: {len(failed)}, next level ({to_lvl}) discovered: {len(discovered)}")
         raw_scrape_logger.info(f"  > finished chunk_{chunk_idx}")
@@ -98,12 +100,12 @@ def fetch_level(from_lvl, to_lvl, parent_ids, base_path, chunk_start_index, stat
 
     return processed, next_chunk_index, failed, discovered
 
-def getOSMIDAddsStruct_chunks(tuple):
+def getOSMIDAddsStruct_chunks(tuple, save_dir:Path):
     country, id, addLvls = tuple
-    base_path = os.path.join(os.getcwd(), '..', 'data/raw/osm countries queries', country)
+    country_save_dir = save_dir / country
 
     lvls = ['2', *addLvls]
-    state_path = os.path.join(base_path, 'state.pkl')
+    state_path = country_save_dir / 'state.pkl'
 
     if os.path.exists(state_path):
         state = tgm.load(state_path)
@@ -115,21 +117,21 @@ def getOSMIDAddsStruct_chunks(tuple):
     state['2']['discovered'] = {id}
 
     country_osm_data = getOSMIDAddsStruct(id, [-1,-1,-1])
-    tgm.dump(os.path.join(base_path, f'lvl_2_chunk_0_rawOSMRes.json'), country_osm_data['data'])
+    tgm.dump(country_save_dir / f'lvl_2_chunk_0_rawOSMRes.json', country_osm_data['data'])
 
-    def try_fetch_level(from_lvl, to_lvl, state):
+    def fetch_level_with_retry(from_lvl, to_lvl, state):
 
         pending = [id for id in state[from_lvl]['discovered'] if id not in state[from_lvl]['processed']]
 
         while pending:
-            processed, next_chunk_index, failed, discovered = fetch_level(
+            processed, next_chunk_index, failed, discovered = fetch_level_in_chunks(
                 from_lvl=from_lvl, 
                 to_lvl=to_lvl,
                 parent_ids=pending,
-                base_path=base_path,
+                save_dir=country_save_dir,
                 chunk_start_index=state[to_lvl]['next_chunk_index'],
                 state=state,
-                chunk_size=20
+                chunk_size=50
             )
 
             pending = failed
@@ -137,14 +139,14 @@ def getOSMIDAddsStruct_chunks(tuple):
             if failed:
                 raw_scrape_logger.info(f"Retrying {len(failed)} failed IDs...")
 
-    try_fetch_level('2', '4', state)
-    try_fetch_level('4', '6', state)
-    try_fetch_level('6', '8', state)
+    fetch_level_with_retry('2', '4', state)
+    fetch_level_with_retry('4', '6', state)
+    fetch_level_with_retry('6', '8', state)
 
     return state
 
-def fetch_admin_osm_structure(tuple, method='simple'):
-    failed_countries_path = os.path.join(os.getcwd(), '..', 'data/raw/failed_countries.pkl')
+def fetch_admin_osm_structure(tuple, save_dir:Path, method='simple'):
+    failed_countries_path = save_dir / 'failed_countries.pkl'
     failed_countries = tgm.load(failed_countries_path) if os.path.exists(failed_countries_path) else []
 
     country, id, addLvls = tuple
@@ -154,17 +156,17 @@ def fetch_admin_osm_structure(tuple, method='simple'):
         case 'simple':
             response = getOSMIDAddsStruct(id, addLvls)
             raw_scrape_logger.info(f"  - finished: {response["status"]}")
-            save_path = os.path.join(os.getcwd(), '..', 'data/raw/osm countries queries', country, f'rawOSMRes.json')
+            save_path = save_dir / country / f'rawOSMRes.json'
             if response["status"] == "ok":
                 tgm.dump(save_path, response["data"])
             elif '429 Client Error' in response["status_type"]:
                 raw_scrape_logger.info(f"  - Too many requests error, trying chunks")
-                response = getOSMIDAddsStruct_chunks(tuple)
+                response = getOSMIDAddsStruct_chunks(tuple, save_dir)
             else:
                 failed_countries[country] = {"id": tuple, "response": response}
                 tgm.dump(failed_countries_path, failed_countries)
         case 'chunks':
-            response = getOSMIDAddsStruct_chunks(tuple)
+            response = getOSMIDAddsStruct_chunks(tuple, save_dir)
 
     time.sleep(3)
     return response
