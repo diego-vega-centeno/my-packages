@@ -6,6 +6,7 @@ import pandas as pd
 import time
 import logging
 import toolsGeneral.main as tgm
+from IPython.display import clear_output
 
 logger = logging.getLogger('dup_test_logger')
 raw_scrape_logger = logging.getLogger('raw_scrape_logger')
@@ -47,7 +48,7 @@ def getOSMIDAddsStruct(relId: str, lvls: list):
 
     return query_res
 
-def fetch_level(from_lvl, to_lvl, parent_ids, base_path, chunk_start_index, chunk_size=20):
+def fetch_level(from_lvl, to_lvl, parent_ids, base_path, chunk_start_index, state, chunk_size=20):
     failed = set()
     processed = set()
     discovered = set()
@@ -57,27 +58,43 @@ def fetch_level(from_lvl, to_lvl, parent_ids, base_path, chunk_start_index, chun
     os.makedirs(base_path, exist_ok=True)
 
     next_chunk_index = chunk_start_index
-
+    raw_scrape_logger.info(f" > processing {from_lvl} to {to_lvl}:")
+    raw_scrape_logger.info(f"  * ids in current level ({from_lvl}): {len(state[from_lvl]['discovered'])}, ids to process: {len(parent_ids)}, current chunks = {len(chunks)}")
+    
+    
     for chunk_idx, chunk in enumerate(chunks, start=chunk_start_index):
-        raw_scrape_logger.info(f" * processing {from_lvl} to {to_lvl}: chunk_{chunk_idx}")
+        # clear_output(wait=True)
+        raw_scrape_logger.info(f"  > chunk_{chunk_idx}")
+        raw_scrape_logger.info(f"   * making query ...")
         res = get_add_lvls_from_id(chunk, to_lvl)
+        raw_scrape_logger.info(f"   * finished query ...")
         if res.get("status") != "ok":
             failed.update(chunk)
             continue
         
         processed.update(chunk)
-        tgm.dump(os.path.join(base_path, f'lvl_{to_lvl}_chunk_{chunk_idx}_rawOSMRes.json'), res['data'])
         
         elements = res["data"].get("elements", [])
         if elements:
             next_chunk_index = chunk_idx + 1
             discovered.update(str(elem["id"]) for elem in elements if "id" in elem)
 
-        raw_scrape_logger.info(f"  * finished chunk_{chunk_idx}")
-        raw_scrape_logger.info(f"   * processed: {len(processed)}, failed: {len(failed)}, next level discovered: {len(discovered)}")
-        
+        # save state from chunk
+        state[from_lvl]['processed'].update(processed)
+        state[from_lvl]['failed'].update(failed)
 
-    raw_scrape_logger.info(f" * finished lvl {from_lvl}-> processed:{len(processed)}, failed: {len(failed)}, next level discovered: {len(discovered)}")
+        state[to_lvl]['next_chunk_index'] = next_chunk_index
+        state[to_lvl]['discovered'].update(discovered)
+
+        # save data
+        raw_scrape_logger.info(f"   * saving...")
+        tgm.dump(os.path.join(base_path, f'lvl_{to_lvl}_chunk_{chunk_idx}_rawOSMRes.json'), res['data'])
+        tgm.dump(os.path.join(base_path, 'state.pkl'), state)
+
+        raw_scrape_logger.info(f"   * processed: {len(processed)}, failed: {len(failed)}, next level ({to_lvl}) discovered: {len(discovered)}")
+        raw_scrape_logger.info(f"  > finished chunk_{chunk_idx}")
+        
+    raw_scrape_logger.info(f" > finished lvl {from_lvl}-> processed:{len(processed)}, failed: {len(failed)}, next level discovered: {len(discovered)}")
 
     return processed, next_chunk_index, failed, discovered
 
@@ -110,22 +127,15 @@ def getOSMIDAddsStruct_chunks(tuple):
                 to_lvl=to_lvl,
                 parent_ids=pending,
                 base_path=base_path,
-                chunk_start_index=state[from_lvl]['next_chunk_index'],
+                chunk_start_index=state[to_lvl]['next_chunk_index'],
+                state=state,
                 chunk_size=20
             )
-
-            state[from_lvl]['processed'].update(processed)
-            state[from_lvl]['failed'].update(failed)
-            state[from_lvl]['next_chunk_index'] = next_chunk_index
-
-            state[to_lvl]['discovered'].update(discovered)
-
-            tgm.dump(os.path.join(base_path, 'state.pkl'), state)
 
             pending = failed
 
             if failed:
-                print(f"Retrying {len(failed)} failed IDs...")
+                raw_scrape_logger.info(f"Retrying {len(failed)} failed IDs...")
 
     try_fetch_level('2', '4', state)
     try_fetch_level('4', '6', state)
