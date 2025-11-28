@@ -155,7 +155,7 @@ def fetch_admin_osm_structure(tuple, save_dir:Path, method='simple'):
     match method:
         case 'simple':
             response = getOSMIDAddsStruct(id, addLvls)
-            raw_scrape_logger.info(f"  - finished: {response["status"]}")
+            raw_scrape_logger.info(f"  - finished: {response['status']}")
             save_path = save_dir / country / f'rawOSMRes.json'
             if response["status"] == "ok":
                 tgm.dump(save_path, response["data"])
