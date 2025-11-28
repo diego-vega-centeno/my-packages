@@ -6,7 +6,6 @@ import pandas as pd
 import time
 import logging
 import toolsGeneral.main as tgm
-from IPython.display import clear_output
 from pathlib import Path
 
 logger = logging.getLogger('dup_test_logger')
@@ -65,7 +64,6 @@ def fetch_level_in_chunks(from_lvl, to_lvl, parent_ids, save_dir:Path, chunk_sta
     
     
     for chunk_idx, chunk in enumerate(chunks, start=chunk_start_index):
-        # clear_output(wait=True)
         raw_scrape_logger.info(f"  > chunk_{chunk_idx}")
         raw_scrape_logger.info(f"   * making query ...")
         res = get_add_lvls_from_id(chunk, to_lvl)
