@@ -106,8 +106,6 @@ def getOSMIDAddsStruct_chunks(tuple, save_dir:Path):
     country, id, addLvls = tuple
     country_save_dir = save_dir / country
     
-    retries_max = 5
-    retries_count = 0
     lvls = ['2', *addLvls]
     state_path = country_save_dir / 'state.pkl'
     if os.path.exists(state_path):
@@ -126,7 +124,8 @@ def getOSMIDAddsStruct_chunks(tuple, save_dir:Path):
     # get levels with retry
     raw_scrape_logger.info(f" > processing {country}:")
     def fetch_level_with_retry(from_lvl, to_lvl, state):
-
+        retries_count = 0
+        retries_max = 5
         pending = [id for id in state[from_lvl]['discovered'] if id not in state[from_lvl]['processed']]
 
         while pending and retries_count <= retries_max:
