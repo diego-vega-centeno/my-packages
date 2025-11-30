@@ -16,7 +16,7 @@ raw_scrape_logger = logging.getLogger('raw_scrape_logger')
 def getOSMIDAddsStruct(relId: str, lvls: list):
 
     query = f"""
-        [timeout:900][out:json];
+        [timeout:600][out:json];
 
         rel({relId});
         out tags;
@@ -516,7 +516,7 @@ def osm_query_safe_wrapper(query, max_retries=5):
 
     for attempt in range(max_retries):
         try:
-            response = requests.get(endPoint, params={"data": query}, timeout=900)
+            response = requests.get(endPoint, params={"data": query}, timeout=600)
             response.raise_for_status()
 
             data = response.json()
