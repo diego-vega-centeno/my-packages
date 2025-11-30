@@ -115,7 +115,6 @@ def getOSMIDAddsStruct_chunks(tuple, save_dir:Path):
         for lvl in lvls:
             state[lvl] = {"processed": set(), "failed": set(), "discovered": set(), "next_chunk_index": 0}
 
-
     # Get country data and save file
     state['2']['discovered'] = {id}
     country_osm_data = getOSMIDAddsStruct(id, [-1,-1,-1])
@@ -144,14 +143,17 @@ def getOSMIDAddsStruct_chunks(tuple, save_dir:Path):
             if failed:
                 raw_scrape_logger.info(f"Retrying {len(failed)} failed IDs...")
 
-    fetch_level_with_retry('2', '4', state)
-    fetch_level_with_retry('4', '6', state)
-    fetch_level_with_retry('6', '8', state)
+        if retries_count > retries_max:
+            raise Exception("max_number_retries")
 
-    if retries_count > retries_max:
-        res = {'staus':'error', 'status_type': 'max_number_retries', 'data':state}
-    else:
+    try:
+        fetch_level_with_retry('2', '4', state)
+        fetch_level_with_retry('4', '6', state)
+        fetch_level_with_retry('6', '8', state)
+
         res = {'staus':'ok', 'status_type': None, 'data':state}
+    except Exception as e:
+        res = {'staus':'error', 'status_type': str(e), 'data':state}
 
     return res
 
