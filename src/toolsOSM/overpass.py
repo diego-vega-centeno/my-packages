@@ -151,9 +151,9 @@ def getOSMIDAddsStruct_chunks(tuple, save_dir:Path):
         fetch_level_with_retry('4', '6', state)
         fetch_level_with_retry('6', '8', state)
 
-        res = {'staus':'ok', 'status_type': None, 'data':state}
+        res = {'status':'ok', 'status_type': None, 'data':state}
     except Exception as e:
-        res = {'staus':'error', 'status_type': str(e), 'data':state}
+        res = {'status':'error', 'status_type': str(e), 'data':state}
 
     return res
 
