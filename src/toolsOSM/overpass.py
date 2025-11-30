@@ -101,13 +101,15 @@ def fetch_level_in_chunks(from_lvl, to_lvl, parent_ids, save_dir:Path, chunk_sta
     return processed, next_chunk_index, failed, discovered
 
 def getOSMIDAddsStruct_chunks(tuple, save_dir:Path):
+
+    # initialize variables
     country, id, addLvls = tuple
     country_save_dir = save_dir / country
-    raw_scrape_logger.info(f" > processing {country}:")
-
+    
+    retries_max = 5
+    retries_count = 0
     lvls = ['2', *addLvls]
     state_path = country_save_dir / 'state.pkl'
-
     if os.path.exists(state_path):
         state = tgm.load(state_path)
     else:
@@ -115,16 +117,19 @@ def getOSMIDAddsStruct_chunks(tuple, save_dir:Path):
         for lvl in lvls:
             state[lvl] = {"processed": set(), "failed": set(), "discovered": set(), "next_chunk_index": 0}
 
-    state['2']['discovered'] = {id}
 
+    # Get country data and save file
+    state['2']['discovered'] = {id}
     country_osm_data = getOSMIDAddsStruct(id, [-1,-1,-1])
     tgm.dump(country_save_dir / f'lvl_2_chunk_0_rawOSMRes.json', country_osm_data['data'])
 
+    # get levels with retry
+    raw_scrape_logger.info(f" > processing {country}:")
     def fetch_level_with_retry(from_lvl, to_lvl, state):
 
         pending = [id for id in state[from_lvl]['discovered'] if id not in state[from_lvl]['processed']]
 
-        while pending:
+        while pending and retries_count <= retries_max:
             processed, next_chunk_index, failed, discovered = fetch_level_in_chunks(
                 from_lvl=from_lvl, 
                 to_lvl=to_lvl,
@@ -136,7 +141,7 @@ def getOSMIDAddsStruct_chunks(tuple, save_dir:Path):
             )
 
             pending = failed
-
+            retries_count += 1
             if failed:
                 raw_scrape_logger.info(f"Retrying {len(failed)} failed IDs...")
 
@@ -144,7 +149,12 @@ def getOSMIDAddsStruct_chunks(tuple, save_dir:Path):
     fetch_level_with_retry('4', '6', state)
     fetch_level_with_retry('6', '8', state)
 
-    return state
+    if retries_count > retries_max:
+        res = {'staus':'error', 'status_type': 'max_number_retries', 'data':state}
+    else:
+        res = {'staus':'ok', 'status_type': None, 'data':state}
+
+    return res
 
 def get_add_lvls_from_id(ids:list, lvl:str):
 
