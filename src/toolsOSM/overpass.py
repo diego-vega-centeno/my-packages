@@ -103,6 +103,7 @@ def fetch_level_in_chunks(from_lvl, to_lvl, parent_ids, save_dir:Path, chunk_sta
 def getOSMIDAddsStruct_chunks(tuple, save_dir:Path):
     country, id, addLvls = tuple
     country_save_dir = save_dir / country
+    raw_scrape_logger.info(f" > processing {country}:")
 
     lvls = ['2', *addLvls]
     state_path = country_save_dir / 'state.pkl'
