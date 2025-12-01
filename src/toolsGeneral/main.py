@@ -8,6 +8,13 @@ import unicodedata
 import re
 from collections import Counter
 
+import json
+
+class SetEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, set):
+            return list(obj)
+        return super().default(obj)
 
 def dump(path:str, data):
     if not os.path.exists(os.path.dirname(path)) and not os.path.dirname(path) == '':
@@ -16,7 +23,7 @@ def dump(path:str, data):
     match pathlib.Path(path).suffix:
       case ".json":
         with open(path, "w", encoding='utf-8') as file:
-          json.dump(data, file, indent=2)
+          json.dump(data, file, indent=2, cls=SetEncoder)
       case ".html":
         with open(path, "w", encoding='utf-8') as file:
           file.write(data)
