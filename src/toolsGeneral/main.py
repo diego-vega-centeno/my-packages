@@ -13,8 +13,13 @@ import json
 class SetEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, set):
-            return list(obj)
+            return {"type": "set", "items": list(obj)}
         return super().default(obj)
+
+def decode_sets(obj):
+    if "type" in obj and obj["type"] == "set":
+        return set(obj["items"])
+    return obj
 
 def dump(path:str, data):
     if not os.path.exists(os.path.dirname(path)) and not os.path.dirname(path) == '':
@@ -36,7 +41,7 @@ def load(path:str):
   match pathlib.Path(path).suffix:
     case '.json':
       with open(path, 'r',  encoding="utf8") as file:
-        return json.load(file)
+        return json.load(file, object_hook=decode_sets)
     case '.html':
       with open(path, 'r',  encoding="utf8") as file:
         return file.read()
