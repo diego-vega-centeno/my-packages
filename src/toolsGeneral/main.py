@@ -13,7 +13,7 @@ import json
 class SetEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, set):
-            return {"type": "set", "items": list(obj)}
+            return {"type": "set", "items": sorted(list(obj))}
         return super().default(obj)
 
 def decode_sets(obj):
