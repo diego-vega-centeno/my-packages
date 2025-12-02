@@ -2,6 +2,7 @@ pyproject.toml
 src/my_packages.egg-info/PKG-INFO
 src/my_packages.egg-info/SOURCES.txt
 src/my_packages.egg-info/dependency_links.txt
+src/my_packages.egg-info/requires.txt
 src/my_packages.egg-info/top_level.txt
 src/toolsGeneral/__init__.py
 src/toolsGeneral/logger.py

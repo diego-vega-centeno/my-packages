@@ -8,6 +8,12 @@ version = "0.2.0"
 description = "My personal utility packages"
 readme = "README.md"
 requires-python = ">=3.9"
+dependencies = [
+    "flatten_json",
+    "IPython",
+    "pandas",
+    "pandas-flavor",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

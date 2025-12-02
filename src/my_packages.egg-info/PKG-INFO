@@ -4,3 +4,7 @@ Version: 0.2.0
 Summary: My personal utility packages
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
+Requires-Dist: flatten_json
+Requires-Dist: IPython
+Requires-Dist: pandas
+Requires-Dist: pandas-flavor

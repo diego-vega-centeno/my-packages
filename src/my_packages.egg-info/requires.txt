@@ -1,0 +1,4 @@
+flatten_json
+IPython
+pandas
+pandas-flavor
