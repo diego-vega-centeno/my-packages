@@ -14,7 +14,7 @@ def unflatten(df):
     ]
 
 @pf.register_dataframe_method
-def df_peek(df,  height=500, width='100%'):
+def peek(df,  height=500, width='100%'):
     html = f"""
     <div style="overflow:auto; max-height:{height}px; max-width:{width}; border:1px solid #ccc; padding:4px;">
         {df.to_html()}
