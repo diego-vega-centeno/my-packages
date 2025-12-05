@@ -116,11 +116,14 @@ def getOSMIDAddsStruct_chunks(tuple, save_dir:Path):
 
     # Get country data and save file
     state['2']['discovered'] = {id}
-    country_osm_data = getOSMIDAddsStruct(id, [-1,-1,-1])
-    tgm.dump(country_save_dir / f'lvl_2_chunk_0_rawOSMRes.json', country_osm_data['data'])
 
     # get levels with retry
     logger.info(f" > processing {country}:")
+
+    logger.info(" > processing country base level 2")
+    country_osm_data = getOSMIDAddsStruct(id, [-1,-1,-1])
+    tgm.dump(country_save_dir / f'lvl_2_chunk_0_rawOSMRes.json', country_osm_data['data'])
+
     def fetch_level_with_retry(from_lvl, to_lvl, state):
         retries_count = 0
         retries_max = 5
