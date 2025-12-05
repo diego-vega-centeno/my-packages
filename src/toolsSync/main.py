@@ -22,6 +22,7 @@ def upload_dir_files_to_backblaze(dir:Path, config):
                 if e.response['Error']['Code'] == "NoSuchKey":
                     logger.info(f"File to delete {file} not found, continue")
             except Exception as e:
+                logger.error(f"Eror while deleting file: {e}")
                 return {'status':'error', 'status_type':e, 'data':response}
             # upload file
             try:
