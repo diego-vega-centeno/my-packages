@@ -35,7 +35,7 @@ def upload_dir_files_to_backblaze(dir:Path, config):
             except Exception as e:
                 logger.error(f"Failed to upload {file}: {e}")
                 # Making early return in case one file upload fails
-                return {'status':'error', 'status_type':e, 'data':response}
+                return {'status':'error', 'status_type':'Failed to upload a file from directory', 'data':response}
             
     return {'status':'ok', 'status_type':None, 'data':response}
 
@@ -52,10 +52,11 @@ def commit_file(file:Path, commit_msg, logger):
     except Exception as e:
         logger.error(f"Failed to commit {file.name}: {e}")
 
-def update_process_state(process_state, country, process_type, process_status):
+def update_process_state(process_state, country, process_type, process_status="pending", process_error=None):
     process_state.setdefault(country, {
         key: {"status": "pending", "last_run": None, "error": None} for key in 
         ["scrape", "clean", "test_basic", "test_first_level", "test_duplicates", "fix"]
     })
     process_state[country][process_type]['status'] = process_status
     process_state[country][process_type]['last_run'] = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    process_state[country][process_type]['error'] = process_error
