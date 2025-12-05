@@ -11,9 +11,11 @@ def upload_dir_files_to_backblaze(dir:Path, config):
     logger = config['logger']
     root = config['root']
     dir_files = [f for f in dir.rglob("*.json")]
-    logger.info(f"Number of files found in dir {dir.name}: {len(dir_files)}")
+    logger.info(f"Number of files found in dir {dir}: {len(dir_files)}")
     for file in dir_files:
+        logger.info(f"file: {file}")
         if file.is_file():
+            logger.info(f"Uploading: {file}")
             # delete file if exists
             try:
                 s3.delete_object(Bucket=os.environ["B2_BUCKET_NAME"], Key=str(file.relative_to(root)))
