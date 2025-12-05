@@ -10,8 +10,9 @@ def upload_dir_files_to_backblaze(dir:Path, config):
     s3 = config['s3']
     logger = config['logger']
     root = config['root']
-
-    for file in dir.rglob("*"):
+    dir_files = [f for f in dir.rglob("*.json")]
+    logger.info(f"Number of files found in dir {dir.name}: {len(dir_files)}")
+    for file in dir_files:
         if file.is_file():
             # delete file if exists
             try:
@@ -21,6 +22,7 @@ def upload_dir_files_to_backblaze(dir:Path, config):
                 if e.response['Error']['Code'] != "NoSuchKey":
                     logger.error(f"Failed delete {file}: {e}")
                     raise # raise same exception
+                logger.info(f"File to delete not found, continue")
             # upload file
             try:
                 response = s3.upload_file(
