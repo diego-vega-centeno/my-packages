@@ -23,15 +23,16 @@ def upload_dir_files_to_backblaze(dir:Path, config):
                     raise # raise same exception
             # upload file
             try:
-                s3.upload_file(
+                response = s3.upload_file(
                     str(file), 
                     os.environ["B2_BUCKET_NAME"], 
                     str(file.relative_to(root))
                 )
                 logger.info(f"Uploaded {file} to Backblaze successfully")
+                return {'status':'ok', 'status_type':None, 'data':response}
             except Exception as e:
                 logger.error(f"Failed to upload {file}: {e}")
-
+                return {'status':'error', 'status_type':e, 'data':response} 
 
 def commit_file(file:Path, commit_msg, logger):
     try:
