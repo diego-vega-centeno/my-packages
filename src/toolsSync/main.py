@@ -33,6 +33,7 @@ def upload_dir_files_to_backblaze(dir:Path, config):
                 logger.info(f"Uploaded {file} to Backblaze successfully")
             except Exception as e:
                 logger.error(f"Failed to upload {file}: {e}")
+                # Making early return in case one file upload fails
                 return {'status':'error', 'status_type':e, 'data':response}
             
     return {'status':'ok', 'status_type':None, 'data':response}
