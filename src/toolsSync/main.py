@@ -13,9 +13,7 @@ def upload_dir_files_to_backblaze(dir:Path, config):
     dir_files = [f for f in dir.rglob("*.json")]
     logger.info(f"Number of files found in dir {dir}: {len(dir_files)}")
     for file in dir_files:
-        logger.info(f"file: {file}")
         if file.is_file():
-            logger.info(f"Uploading: {file}")
             # delete file if exists
             try:
                 s3.delete_object(Bucket=os.environ["B2_BUCKET_NAME"], Key=str(file.relative_to(root)))
@@ -33,10 +31,12 @@ def upload_dir_files_to_backblaze(dir:Path, config):
                     str(file.relative_to(root))
                 )
                 logger.info(f"Uploaded {file} to Backblaze successfully")
-                return {'status':'ok', 'status_type':None, 'data':response}
             except Exception as e:
                 logger.error(f"Failed to upload {file}: {e}")
-                return {'status':'error', 'status_type':e, 'data':response} 
+                return {'status':'error', 'status_type':e, 'data':response}
+            
+    return {'status':'ok', 'status_type':None, 'data':response}
+
 
 def commit_file(file:Path, commit_msg, logger):
     try:
