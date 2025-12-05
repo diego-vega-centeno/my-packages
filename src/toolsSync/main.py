@@ -19,10 +19,10 @@ def upload_dir_files_to_backblaze(dir:Path, config):
                 s3.delete_object(Bucket=os.environ["B2_BUCKET_NAME"], Key=str(file.relative_to(root)))
             except ClientError as e:
                 # Ignore error if file doesn't exist
-                if e.response['Error']['Code'] != "NoSuchKey":
-                    logger.error(f"Failed delete {file}: {e}")
-                    raise # raise same exception
-                logger.info(f"File to delete not found, continue")
+                if e.response['Error']['Code'] == "NoSuchKey":
+                    logger.info(f"File to delete {file} not found, continue")
+            except Exception as e:
+                return {'status':'error', 'status_type':e, 'data':response}
             # upload file
             try:
                 response = s3.upload_file(
