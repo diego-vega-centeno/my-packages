@@ -15,22 +15,13 @@ def upload_dir_files_to_backblaze(dir:Path, config):
     logger.info(f"Number of files found: {len(dir_files)}")
     for file in dir_files:
         if file.is_file():
-            # delete file if exists
-            try:
-                s3.delete_object(Bucket=os.environ["B2_BUCKET_NAME"], Key=str(file.relative_to(root)))
-            except ClientError as e:
-                # Ignore error if file doesn't exist
-                if e.response['Error']['Code'] == "NoSuchKey":
-                    logger.info(f"File to delete {file} not found, continue")
-            except Exception as e:
-                logger.error(f"Eror while deleting file: {e}")
-                return {'status':'error', 'status_type':e, 'data':response}
-            # upload file
+            # dont delete file, just let the backbalze lifetime file settings delete it
+            # if you try to delete a file that doesnt exist, it creates an object application/x-bz-hide-marker
             try:
                 response = s3.upload_file(
                     str(file), 
                     os.environ["B2_BUCKET_NAME"], 
-                    str(file.relative_to(root))
+                    str(file.relative_to(root).as_posix())
                 )
                 logger.info(f"Uploaded {file.relative_to(dir)} to Backblaze successfully")
             except Exception as e:
