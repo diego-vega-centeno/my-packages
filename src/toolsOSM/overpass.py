@@ -49,7 +49,7 @@ def getOSMIDAddsStruct(relId: str, lvls: list):
 
     return query_res
 
-def fetch_level_in_chunks(from_lvl, to_lvl, parent_ids, save_dir:Path, chunk_start_index, state, chunk_size=20):
+def fetch_level_in_chunks(from_lvl, to_lvl, parent_ids, save_dir:Path, chunk_start_index, chunk_state, chunk_size=20):
     failed = set()
     processed = set()
     discovered = set()
@@ -60,7 +60,7 @@ def fetch_level_in_chunks(from_lvl, to_lvl, parent_ids, save_dir:Path, chunk_sta
 
     next_chunk_index = chunk_start_index
     logger.info(f" > processing {from_lvl} to {to_lvl}:")
-    logger.info(f"  * ids in level ({from_lvl}): {len(state[from_lvl]['discovered'])}:")
+    logger.info(f"  * ids in level ({from_lvl}): {len(chunk_state[from_lvl]['discovered'])}:")
     logger.info(f"  * current ids to process: {len(parent_ids)}, number of chunks = {len(chunks)}")
     
     
@@ -81,16 +81,15 @@ def fetch_level_in_chunks(from_lvl, to_lvl, parent_ids, save_dir:Path, chunk_sta
             discovered.update(str(elem["id"]) for elem in elements if "id" in elem)
 
         # save state from chunk
-        state[from_lvl]['processed'].update(processed)
-        state[from_lvl]['failed'].update(failed)
+        chunk_state[from_lvl]['processed'].update(processed)
+        chunk_state[from_lvl]['failed'].update(failed)
 
-        state[to_lvl]['next_chunk_index'] = next_chunk_index
-        state[to_lvl]['discovered'].update(discovered)
+        chunk_state[to_lvl]['next_chunk_index'] = next_chunk_index
+        chunk_state[to_lvl]['discovered'].update(discovered)
 
         # save data
         logger.info(f"   * saving...")
         tgm.dump(os.path.join(save_dir / f'lvl_{to_lvl}_chunk_{chunk_idx}_rawOSMRes.json'), res['data'])
-        tgm.dump(os.path.join(save_dir / 'state.pkl'), state)
 
         logger.info(f"   * processed: {len(processed)}, failed: {len(failed)}, next level ({to_lvl}) discovered: {len(discovered)}")
         logger.info(f"  > finished chunk_{chunk_idx}")
@@ -99,33 +98,30 @@ def fetch_level_in_chunks(from_lvl, to_lvl, parent_ids, save_dir:Path, chunk_sta
 
     return processed, next_chunk_index, failed, discovered
 
-def getOSMIDAddsStruct_chunks(tuple, save_dir:Path):
+def getOSMIDAddsStruct_chunks(tuple, save_dir:Path, chunk_state):
 
     # initialize variables
     country, id, addLvls = tuple
     country_save_dir = save_dir / country
     
-    lvls = ['2', *addLvls]
-    state_path = country_save_dir / 'state.pkl'
-    if os.path.exists(state_path):
-        state = tgm.load(state_path)
-    else:
-        state = {}
+    if not chunk_state:
+        chunk_state = {}
+        lvls = ['2', *addLvls]
         for lvl in lvls:
-            state[lvl] = {"processed": set(), "failed": set(), "discovered": set(), "next_chunk_index": 0}
+            chunk_state[lvl] = {"processed": set(), "failed": set(), "discovered": set(), "next_chunk_index": 0}
 
     # Get country data and save file
-    state['2']['discovered'] = {id}
+    chunk_state['2']['discovered'] = {id}
 
     # get levels with retry
     logger.info(" > processing country base level 2")
     country_osm_data = getOSMIDAddsStruct(id, [-1,-1,-1])
     tgm.dump(country_save_dir / f'lvl_2_chunk_0_rawOSMRes.json', country_osm_data['data'])
 
-    def fetch_level_with_retry(from_lvl, to_lvl, state):
+    def fetch_level_with_retry(from_lvl, to_lvl, chunk_state):
         retries_count = 0
         retries_max = 5
-        pending = [id for id in state[from_lvl]['discovered'] if id not in state[from_lvl]['processed']]
+        pending = [id for id in chunk_state[from_lvl]['discovered'] if id not in chunk_state[from_lvl]['processed']]
 
         while pending and retries_count <= retries_max:
             processed, next_chunk_index, failed, discovered = fetch_level_in_chunks(
@@ -133,8 +129,8 @@ def getOSMIDAddsStruct_chunks(tuple, save_dir:Path):
                 to_lvl=to_lvl,
                 parent_ids=pending,
                 save_dir=country_save_dir,
-                chunk_start_index=state[to_lvl]['next_chunk_index'],
-                state=state,
+                chunk_start_index=chunk_state[to_lvl]['next_chunk_index'],
+                chunk_state=chunk_state,
                 chunk_size=50
             )
 
@@ -147,13 +143,13 @@ def getOSMIDAddsStruct_chunks(tuple, save_dir:Path):
             raise Exception("max_number_retries")
 
     try:
-        fetch_level_with_retry('2', '4', state)
-        fetch_level_with_retry('4', '6', state)
-        fetch_level_with_retry('6', '8', state)
+        fetch_level_with_retry('2', '4', chunk_state)
+        fetch_level_with_retry('4', '6', chunk_state)
+        fetch_level_with_retry('6', '8', chunk_state)
 
-        res = {'status':'ok', 'status_type': None, 'data':state}
+        res = {'status':'ok', 'status_type': None, 'data':chunk_state}
     except Exception as e:
-        res = {'status':'error', 'status_type': str(e), 'data':state}
+        res = {'status':'error', 'status_type': str(e), 'data':chunk_state}
 
     return res
 
