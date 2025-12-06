@@ -10,24 +10,23 @@ def upload_dir_files_to_backblaze(dir:Path, config):
     s3 = config['s3']
     logger = config['logger']
     root = config['root']
-    dir_files = [f for f in dir.rglob("*.json")]
-    logger.info(f"Uploading directory (.json files):{dir}")
+    dir_files = [f for f in dir.rglob("*") if f.is_file()]
+    logger.info(f"Uploading directory: {dir}")
     logger.info(f"Number of files found: {len(dir_files)}")
     for file in dir_files:
-        if file.is_file():
-            # dont delete file, just let the backbalze lifetime file settings delete it
-            # if you try to delete a file that doesnt exist, it creates an object application/x-bz-hide-marker
-            try:
-                s3.upload_file(
-                    str(file), 
-                    os.environ["B2_BUCKET_NAME"], 
-                    str(file.relative_to(root).as_posix())
-                )
-                logger.info(f"Uploaded {file.relative_to(dir)} to Backblaze successfully")
-            except Exception as e:
-                logger.error(f"Failed to upload {file}: {e}")
-                # Making early return in case one file upload fails
-                return {'status':'error', 'status_type':'Failed to upload a file from directory', 'data':None}
+        # dont delete file, just let the backbalze lifetime file settings delete it
+        # if you try to delete a file that doesnt exist, it creates an object application/x-bz-hide-marker
+        try:
+            s3.upload_file(
+                str(file), 
+                os.environ["B2_BUCKET_NAME"], 
+                str(file.relative_to(root).as_posix())
+            )
+            logger.info(f"Uploaded {file.relative_to(dir)} to Backblaze successfully")
+        except Exception as e:
+            logger.error(f"Failed to upload {file}: {e}")
+            # Making early return in case one file upload fails
+            return {'status':'error', 'status_type':'Failed to upload a file from directory', 'data':None}
             
     return {'status':'ok', 'status_type':None, 'data':None}
 
