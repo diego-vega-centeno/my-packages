@@ -11,7 +11,8 @@ def upload_dir_files_to_backblaze(dir:Path, config):
     logger = config['logger']
     root = config['root']
     dir_files = [f for f in dir.rglob("*.json")]
-    logger.info(f"Number of files found in dir {dir}: {len(dir_files)}")
+    logger.info(f"Uploading directory (.json files):{dir}")
+    logger.info(f"Number of files found: {len(dir_files)}")
     for file in dir_files:
         if file.is_file():
             # delete file if exists
@@ -31,7 +32,7 @@ def upload_dir_files_to_backblaze(dir:Path, config):
                     os.environ["B2_BUCKET_NAME"], 
                     str(file.relative_to(root))
                 )
-                logger.info(f"Uploaded {file} to Backblaze successfully")
+                logger.info(f"Uploaded {file.relative_to(dir)} to Backblaze successfully")
             except Exception as e:
                 logger.error(f"Failed to upload {file}: {e}")
                 # Making early return in case one file upload fails
