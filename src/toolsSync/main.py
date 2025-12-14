@@ -76,7 +76,7 @@ def donwload_country_data_from_bucket(countries, bucket_name, bucket_dir:Path, s
     to_download_total = 0
     # load data from b2 bucket for countries to process
     for count, country in enumerate(countries ,start=1):
-        country_files = [str(file) for file in objects_list if re.match(rf"{bucket_dir.as_posix()}/{country}/.+\.json", file)]
+        country_files = [str(file) for file in objects_list if re.match(rf"{bucket_dir.as_posix()}/{country}/.+", file)]
         to_download_total += len(country_files)
         logger.info(f"    * ({count}/{len(countries)}) Country {country} files found: {len(country_files)}")
         if len(country_files) < 1:
@@ -86,6 +86,7 @@ def donwload_country_data_from_bucket(countries, bucket_name, bucket_dir:Path, s
             if save_file.exists():
                 logger.info(f"      * Skip existing file {save_file.name}")
                 downloaded_files_count += 1
+                downloaded_countries.append(country)
                 continue
             
             os.makedirs(save_file.parent, exist_ok=True)
