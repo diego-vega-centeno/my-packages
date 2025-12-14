@@ -552,12 +552,9 @@ def osm_query_safe_wrapper(query, max_retries=5):
     return {"status": "error", "status_type": status_type, "data": None}
 
 
-def osm_basic_test(df_input, save_logger_path = None):
+def osm_basic_test(df_input):
 
-    if save_logger_path:
-        tgl.add_file_handler(logger, save_logger_path)
-
-    #* sort the dataframe
+    #* sort the dataframe, from country to lower levels
     df = df_input.copy()
     df = df.sort_values('tags.admin_level', key=lambda col: col.astype(int)) 
 
@@ -567,8 +564,7 @@ def osm_basic_test(df_input, save_logger_path = None):
     cntr_id = df[cntrRow].iloc[0]["id"]
 
     #* some elements have missing name
-    miss = df[df["tags.name"].isna()]['id'].to_list()
-    logger.info(f" * missing names: {len(miss)}")
+    miss = df[df["tags.name"].isna()][['id', 'tags.parent_id', 'tags.country_id']].apply(tuple,axis=1).to_list()
 
     #* relations from other countries
     #* only discard the ones we are sure are not from the country
@@ -597,8 +593,8 @@ def osm_basic_test(df_input, save_logger_path = None):
             continue
         parentID = row.get("tags.parent_id")
 
+        #* we'll check all tags to have some confidence meassure of the test
         for tag in checkTags:
-            # we'll check all tags to have some confidence meassure of the test
             val = row.get(tag)
             if pd.isna(val):
                 continue
@@ -619,18 +615,15 @@ def osm_basic_test(df_input, save_logger_path = None):
                 false_count += 1
             # else NA, ignore
 
+        #* meassure confidence of results
+        valid_tests = true_count + false_count
+        MIN_TESTS = 2
+        # delete threshold is implicitly 0.7
+        # Bias towards keeping entities, we want to make sure we are sure to delete
+        KEEP_THRESHOLD = 0.3   
 
-        # meassure confidence of results
-
-        if true_count >= 2:
-            in_country.append((osmID, parentID, cntr_id))
-            isInCountry[osmID] = True
-        elif false_count > 0:
-            leak.append((osmID, parentID, cntr_id))
-            isInCountry[osmID] = False
-        elif true_count <= 1:
-            # single weak signal, fallback to parent
-            # except for first level (4)
+        if valid_tests < MIN_TESTS:
+            # Not enough info → parent fallback or NA
             if parentID and isInCountry.get(parentID) is True and row.get('tags.admin_level') != '4':
                 in_country.append((osmID, parentID, cntr_id))
                 isInCountry[osmID] = True
@@ -638,13 +631,26 @@ def osm_basic_test(df_input, save_logger_path = None):
                 NA_result.append((osmID, parentID, cntr_id))
                 isInCountry[osmID] = pd.NA
 
+        else:
+            true_ratio = true_count / valid_tests
+
+            if true_ratio >= KEEP_THRESHOLD:
+                # positive enough → keep
+                in_country.append((osmID, parentID, cntr_id))
+                isInCountry[osmID] = True
+            else:
+                # not positive enough → delete
+                leak.append((osmID, parentID, cntr_id))
+                isInCountry[osmID] = False
+            
+    logger.info(f" * missing names: {len(miss)}")
     logger.info(f" * relations from other countries: {len(leak)}")
 
     return {    
-        "missing.name": miss,
-        "leak": leak,
-        "in_country": in_country,
-        'NA_result': NA_result,
+        "missing_name": miss,
+        "test_tags_leak": leak,
+        "test_tags_in_country": in_country,
+        'test_tags_NA_result': NA_result,
     }
 
 def checkISO(code, cntrCode):
