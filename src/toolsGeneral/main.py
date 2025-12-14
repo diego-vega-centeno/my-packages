@@ -21,20 +21,45 @@ def decode_sets(obj):
         return set(obj["items"])
     return obj
 
+def transform(obj):
+    if isinstance(obj, set):
+        return {"type": "set", "items": sorted([transform(x) for x in obj])}
+    if isinstance(obj, tuple):
+        return {"type":"tuple", "items":[transform(x) for x in obj]}
+    if isinstance(obj, list):
+        return [transform(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: transform(v) for k, v in obj.items()}
+    return obj
+
+def untransform(obj):
+    if isinstance(obj, dict) and obj.get("type") == "set":
+        return set(untransform(x) for x in obj["items"])
+    if isinstance(obj, dict):
+        return {k: untransform(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [untransform(x) for x in obj]
+    return obj
+
 def dump(path:str, data):
-    if not os.path.exists(os.path.dirname(path)) and not os.path.dirname(path) == '':
-        os.makedirs(os.path.dirname(path))
+    _dir = os.path.dirname(path)
+    if _dir:
+        os.makedirs(_dir, exist_ok=True)
 
     match pathlib.Path(path).suffix:
-      case ".json":
-        with open(path, "w", encoding='utf-8') as file:
-          json.dump(data, file, indent=2, cls=SetEncoder)
-      case ".html":
-        with open(path, "w", encoding='utf-8') as file:
-          file.write(data)
-      case ".pkl":
-        with open(path, 'wb') as file:
-          pickle.dump(data, file)
+        case ".json":
+            with open(path, "w", encoding='utf-8') as file:
+                # use a manual transform instead of the subclass SetEncoder
+                # there's no way to override the list object conversion.
+                # For example for: [(a,b,c),(d,e,f)]
+            #   return json.dump(data, file, indent=2, cls=SetEncoder)
+                json.dump(transform(data), file, indent=2)
+        case ".html":
+            with open(path, "w", encoding='utf-8') as file:
+                file.write(data)
+        case ".pkl":
+            with open(path, 'wb') as file:
+                pickle.dump(data, file)
 
 
 def load(path:str):
