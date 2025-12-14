@@ -1,26 +1,25 @@
-from flatten_json import unflatten
 from IPython.display import display, HTML
 import pandas as pd
 import pandas_flavor as pf
 
-def peek(df):
-    return df.dropna(axis=1, how="all").map(repr)
+if not hasattr(pd.DataFrame, "peek"):
+    @pf.register_dataframe_method
+    def peek(df,  height=500, width='100%'):
+        html = f"""
+            <style>
+                .peek-table thead th {{
+                    position: sticky;
+                    top: 0;
+                    background: grey;
+                    z-index: 2;
+                }}
+            </style>
 
-# return dataframe to original [{k:v, ...},...]
-def unflatten(df):
-    return [
-        unflatten(row.dropna().to_dict(), separator='.')
-        for _, row in df.iterrows()
-    ]
-
-@pf.register_dataframe_method
-def peek(df,  height=500, width='100%'):
-    html = f"""
-    <div style="overflow:auto; max-height:{height}px; max-width:{width}; border:1px solid #ccc; padding:4px;">
-        {df.to_html()}
-    </div>
-    """
-    display(HTML(html))
+        <div style="overflow:auto; max-height:{height}px; max-width:{width}; border:1px solid #ccc;">
+            {df.to_html(classes='peek-table')}
+        </div>
+        """
+        display(HTML(html))
 
 def to_df(dict):
     return pd.DataFrame(dict).T
