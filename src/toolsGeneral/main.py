@@ -23,7 +23,9 @@ def decode_sets(obj):
 
 def transform(obj):
     if isinstance(obj, set):
-        return {"type": "set", "items": sorted([transform(x) for x in obj])}
+        items = [transform(x) for x in obj]
+        items.sort(key=json.dumps)
+        return {"type": "set", "items": items}
     if isinstance(obj, tuple):
         return {"type":"tuple", "items":[transform(x) for x in obj]}
     if isinstance(obj, list):
@@ -35,8 +37,16 @@ def transform(obj):
 def untransform(obj):
     if isinstance(obj, dict) and obj.get("type") == "set":
         return set(untransform(x) for x in obj["items"])
+    if isinstance(obj, dict) and obj.get("type") == "tuple":
+        return tuple(untransform(x) for x in obj["items"])
     if isinstance(obj, dict):
         return {k: untransform(v) for k, v in obj.items()}
+    # Will need to use this in cases a dict is made from an unordered source
+    # e.g.
+        # keys = {"a", "b", "c"}  # a set
+        # d = {k: k.upper() for k in keys}
+    # if isinstance(obj, dict):
+    #     return {k: transform(obj[k]) for k in sorted(obj)}
     if isinstance(obj, list):
         return [untransform(x) for x in obj]
     return obj
@@ -66,7 +76,8 @@ def load(path:str):
   match pathlib.Path(path).suffix:
     case '.json':
       with open(path, 'r',  encoding="utf8") as file:
-        return json.load(file, object_hook=decode_sets)
+        return untransform(json.load(file))
+        # return json.load(file, object_hook=decode_sets)
     case '.html':
       with open(path, 'r',  encoding="utf8") as file:
         return file.read()
