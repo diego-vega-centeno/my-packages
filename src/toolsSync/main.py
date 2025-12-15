@@ -58,27 +58,23 @@ def donwload_country_data_from_bucket(countries, bucket_name, bucket_dir:Path, s
     list_obj_response = s3.list_objects_v2(Bucket=bucket_name, Prefix=bucket_dir.as_posix())
 
     objects_list = [(obj['Key']) for obj in list_obj_response['Contents']]
-    b2_countries = tgm.deleteDuplicates([Path(obj['Key']).parent.name  for obj in list_obj_response['Contents']])
+    all_countries_in_b2 = tgm.deleteDuplicates([Path(obj['Key']).parent.name  for obj in list_obj_response['Contents']])
 
-    logger.info(f"  * Total objects found in B2 '{bucket_dir}': {len(objects_list)}")
-    logger.info(f"  * Total countries found in B2 '{bucket_dir}': {len(b2_countries)}")
+    logger.info(f"  * Countries to get data: {len(countries)}")
+    to_download_countries_in_b2 = tgm.intersection(countries, all_countries_in_b2)
+    logger.info(f"    * Found in B2: {len(to_download_countries_in_b2)}, Missing in B2: {len(tgm.complement(countries, all_countries_in_b2))}")
 
-    logger.info(f"  * Countries to download: {len(countries)}: {countries}")
-    countries_in_b2 = tgm.intersection(countries, b2_countries)
-    logger.info(f"  * Countries to download found in B2: {len(countries_in_b2)}")
-    logger.info(f"  * Countries to download missing in B2: {len(tgm.complement(countries_in_b2, b2_countries))}")
-
-    logger.info(f"  * Downloading data for countries: {len(countries_in_b2)}")
-    logger.info(f"  * Downloading directory: '{bucket_dir}' -> '{save_dir}'")
+    logger.info(f"  * Downloading data for countries: {len(to_download_countries_in_b2)}")
+    logger.info(f"    * Directory: '{bucket_dir}' -> '{save_dir}'")
 
     downloaded_countries = []
     downloaded_files_count = 0
     to_download_total = 0
     # load data from b2 bucket for countries to process
-    for count, country in enumerate(countries ,start=1):
+    for count, country in enumerate(to_download_countries_in_b2 ,start=1):
         country_files = [str(file) for file in objects_list if re.match(rf"{bucket_dir.as_posix()}/{country}/.+", file)]
         to_download_total += len(country_files)
-        logger.info(f"    * ({count}/{len(countries)}) Country {country} files found: {len(country_files)}")
+        logger.info(f"    * ({count}/{len(to_download_countries_in_b2)}) Country {country} files found: {len(country_files)}")
         if len(country_files) < 1:
             continue
         for file in country_files:
@@ -86,7 +82,6 @@ def donwload_country_data_from_bucket(countries, bucket_name, bucket_dir:Path, s
             if save_file.exists():
                 logger.info(f"      * Skip existing file {save_file.name}")
                 downloaded_files_count += 1
-                downloaded_countries.append(country)
                 continue
             
             os.makedirs(save_file.parent, exist_ok=True)
