@@ -671,7 +671,6 @@ def osm_test_center(rows, save_temp=False, save_path=''):
         test_res = tgm.load(save_path) if os.path.exists(save_path) else {}
 
     for i, (idx, row) in enumerate(rows.iterrows(), start=1):
-        logger.info(f'* country: {Path(save_path).parent.name}')
         tuple_id = (row["id"], row["tags.parent_id"], row["tags.country_id"])
         logger.info(f" ^ [{i}/{total}]: testing {tuple_id}:")
 
