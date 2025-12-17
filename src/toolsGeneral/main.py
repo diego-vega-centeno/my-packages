@@ -180,3 +180,19 @@ def normalize_country_name(name: str) -> str:
     # Remove spaces and punctuation, lowercase first letter
     name = re.sub(r"[\s\W_]+", "", name)
     return name
+
+def load_countries_dirs(dir:Path, countries=None, extension='*'):
+    dirs = [dir for dir in dir.glob("*") if dir.is_dir()]
+    if countries:
+        dirs = [dir for dir in dirs if dir.name in countries]
+    loaded_data = {}
+    for dir in dirs:
+        if not loaded_data.get(dir.name):
+            loaded_data[dir.name] = {}
+        country_data = loaded_data.get(dir.name)
+        
+        files = [f for f in dir.glob(f"*.{extension}") if f.is_file()]
+        for f in files:
+            country_data.update(load(f))
+
+    return loaded_data
