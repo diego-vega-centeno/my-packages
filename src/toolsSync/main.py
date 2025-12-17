@@ -57,8 +57,9 @@ def donwload_country_data_from_bucket(countries, bucket_name, bucket_dir:Path, s
 
     list_obj_response = s3.list_objects_v2(Bucket=bucket_name, Prefix=bucket_dir.as_posix())
 
-    objects_list = [(obj['Key']) for obj in list_obj_response['Contents']]
-    all_countries_in_b2 = tgm.deleteDuplicates([Path(obj['Key']).parent.name  for obj in list_obj_response['Contents']])
+    list_obj_response_contents = list_obj_response.get('Contents', [])
+    objects_list = [(obj['Key']) for obj in list_obj_response_contents]
+    all_countries_in_b2 = tgm.deleteDuplicates([Path(obj['Key']).parent.name  for obj in list_obj_response_contents])
 
     logger.info(f"  * Countries to get data: {len(countries)}")
     to_download_countries_in_b2 = tgm.intersection(countries, all_countries_in_b2)
