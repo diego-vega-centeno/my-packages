@@ -540,7 +540,7 @@ def osm_query_safe_wrapper(query, max_retries=5):
         except requests.exceptions.Timeout:
             status_type = "requests_timeout"
         except requests.exceptions.RequestException as e:
-            status_type = f"http_error: {e}"
+            status_type = f"http_error: {getattr(e.response, "status_code", None)}"
             if getattr(e.response, "status_code", None) == 400:
                 break
         except Exception as e:
@@ -664,27 +664,31 @@ def checkISO(code, cntrCode):
 
     return iso1 == cntrCode
 
-def osm_test_center(rows, save_temp=False, save_path=''):
+# def osm_test_center(rows, country, save_dir=None, state=None):
 
-    total = len(rows)
-    if save_temp:
-        test_res = tgm.load(save_path) if os.path.exists(save_path) else {}
+#     total = len(rows)
+#     test_res = {}
+#     if save_dir:
+#         save_path = save_dir / f"{country}_first_level_test_res_{state['next_index']}.pkl"
+    
+#     for i, (idx, row) in enumerate(rows.iterrows(), start=1):
+#         id_triplet = (row["id"], row["tags.parent_id"], row["tags.country_id"])
+#         logger.info(f" ^ [{i}/{total}]: testing {id_triplet}:")
 
-    for i, (idx, row) in enumerate(rows.iterrows(), start=1):
-        tuple_id = (row["id"], row["tags.parent_id"], row["tags.country_id"])
-        logger.info(f" ^ [{i}/{total}]: testing {tuple_id}:")
+#         res = is_child_inside_parent(row["id"], row["tags.parent_id"])
+#         test_res[id_triplet] = res
 
-        res = is_child_inside_parent(row["id"], row["tags.parent_id"])
-        test_res[tuple_id] = res
+#         status_list = [v['status'] for k,v in res.items()]
+#         if 'error' in status_list:
+#             state[country]['failed'].add(id_triplet)
+#         else:
+#             state[country]['processed'].add(id_triplet)
+#             if save_dir:
+#                 logger.info(f"  * saving ...")
+#                 tgm.dump(save_path, test_res)
 
-        resume  = {k:v['status'] for k,v in res.items()}
-        status_list = [v['status'] for k,v in res.items()]
-
-        if save_temp and 'error' not in status_list:
-            logger.info(f"  * saving ...")
-            tgm.dump(save_path, test_res)
-
-        logger.info(f" $ finished: status: {resume}")
+#         resume  = {k:v['status'] for k,v in res.items()}
+#         logger.info(f" $ finished: status: {resume}")
         
-        time.sleep(3)
-    return test_res
+#         time.sleep(3)
+#     return test_res
