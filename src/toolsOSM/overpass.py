@@ -540,7 +540,7 @@ def osm_query_safe_wrapper(query, max_retries=5):
         except requests.exceptions.Timeout:
             status_type = "requests_timeout"
         except requests.exceptions.RequestException as e:
-            status_type = f"http_error: {getattr(e.response, "status_code", None)}"
+            status_type = f'http_error: {getattr(e.response, "status_code", None)}'
             if getattr(e.response, "status_code", None) == 400:
                 break
         except Exception as e:
