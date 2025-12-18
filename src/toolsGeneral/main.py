@@ -7,6 +7,7 @@ import pickle
 import unicodedata
 import re
 from collections import Counter
+from pathlib import Path
 
 import json
 
