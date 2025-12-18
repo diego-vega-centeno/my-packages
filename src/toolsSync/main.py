@@ -81,7 +81,7 @@ def donwload_country_data_from_bucket(countries, bucket_name, bucket_dir:Path, s
         for file in country_files:
             save_file = save_dir / country / os.path.basename(file)
             if save_file.exists():
-                logger.info(f"      * Skip existing file {save_file.name}")
+                logger.info(f"      * Skip download of existing file {save_file.name}")
                 downloaded_files_count += 1
                 continue
             
