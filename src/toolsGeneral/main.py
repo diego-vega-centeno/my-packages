@@ -192,8 +192,7 @@ def load_countries_dirs(dir:Path, countries=None, extension='*'):
         dirs = [dir for dir in dirs if dir.name in countries]
     loaded_data = {}
     for dir in dirs:
-        if not loaded_data.get(dir.name):
-            loaded_data[dir.name] = {}
+        loaded_data[dir.name] = {}
         files = [f for f in dir.glob(f"*.{extension}") if f.is_file()]
         for f in files:
             data = load(f)
