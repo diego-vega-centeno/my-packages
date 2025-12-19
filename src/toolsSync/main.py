@@ -59,7 +59,7 @@ def donwload_country_data_from_bucket(countries, bucket_name, bucket_dir:Path, s
 
     list_obj_response_contents = list_obj_response.get('Contents', [])
     objects_list = [(obj['Key']) for obj in list_obj_response_contents]
-    all_countries_in_b2 = tgm.deleteDuplicates([Path(obj['Key']).parent.name  for obj in list_obj_response_contents])
+    all_countries_in_b2 = tgm.delete_duplicates([Path(obj['Key']).parent.name  for obj in list_obj_response_contents])
 
     logger.info(f"  * Countries to get data: {len(countries)}")
     to_download_countries_in_b2 = tgm.intersection(countries, all_countries_in_b2)
