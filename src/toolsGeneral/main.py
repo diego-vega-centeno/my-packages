@@ -129,13 +129,17 @@ def count_duplicates(list):
     dupes = {item: count for item, count in counts.items() if count > 1}
     return dupes
 
+def find_duplicates(list):
+    counts = count_duplicates(list)
+    return [item for item, count in counts.items() if count > 1]
+
 def tally(list):
     return Counter(list)
 
 def list_diff(list1, list2):
     return [complement(list1,list2),intersection(list1,list2),complement(list2,list1)]
 
-def deleteDuplicates(lis):
+def delete_duplicates(lis):
 
     seen = list()
     unique = []
