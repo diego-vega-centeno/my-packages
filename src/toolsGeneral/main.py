@@ -186,7 +186,7 @@ def normalize_country_name(name: str) -> str:
     name = re.sub(r"[\s\W_]+", "", name)
     return name
 
-def load_countries_dirs(dir:Path, countries=None, extension='*'):
+def load_cleaned_dirs(dir:Path, countries=None, extension='*'):
     dirs = [dir for dir in dir.glob("*") if dir.is_dir()]
     if countries:
         dirs = [dir for dir in dirs if dir.name in countries]
@@ -194,11 +194,17 @@ def load_countries_dirs(dir:Path, countries=None, extension='*'):
     for dir in dirs:
         loaded_data[dir.name] = {}
         files = [f for f in dir.glob(f"*.{extension}") if f.is_file()]
-        for f in files:
+        for f in  files:
             data = load(f)
-            if isinstance(data, dict):
-                loaded_data[dir.name].update(data)
-            else:
-                loaded_data[dir.name] = data
+            loaded_data[dir.name].update(data)
+    return loaded_data
 
+def load_single_file_dirs(dir:Path, countries=None, extension='*'):
+    dirs = [dir for dir in dir.glob("*") if dir.is_dir()]
+    if countries:
+        dirs = [dir for dir in dirs if dir.name in countries]
+    loaded_data = {}
+    for dir in dirs:
+        files = [f for f in dir.glob(f"*.{extension}") if f.is_file()]
+        loaded_data[dir.name] = load(files[0])
     return loaded_data
