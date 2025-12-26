@@ -199,12 +199,18 @@ def load_cleaned_dirs(dir:Path, countries=None, extension='*'):
             loaded_data[dir.name].update(data)
     return loaded_data
 
-def load_single_file_dirs(dir:Path, countries=None, extension='*'):
+def load_dirs(dir:Path, countries=None, extension='*'):
+    loaded_data = {}
     dirs = [dir for dir in dir.glob("*") if dir.is_dir()]
     if countries:
         dirs = [dir for dir in dirs if dir.name in countries]
-    loaded_data = {}
     for dir in dirs:
         files = [f for f in dir.glob(f"*.{extension}") if f.is_file()]
-        loaded_data[dir.name] = load(files[0])
+        if len(files) > 1:
+            loaded_data[dir.name] = {}
+            for f in files:
+                loaded_data[dir.name].update(load(f))
+        else:
+            loaded_data[dir.name] = load(files[0])
+        
     return loaded_data
