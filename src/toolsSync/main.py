@@ -38,7 +38,7 @@ def commit_file(file:Path, commit_msg, logger):
         result = subprocess.run(["git", "diff", "--cached", "--quiet"])
         if result.returncode != 0:
             subprocess.run(["git", "commit", "-m", commit_msg], check=True)
-            subprocess.run(["git", "push"], check=True)
+            subprocess.run(["git", "push origin automation"], check=True)
 
         logger.info(f"Commit successful: {file.name}")
     except Exception as e:
