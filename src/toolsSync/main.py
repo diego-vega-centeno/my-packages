@@ -33,16 +33,24 @@ def upload_dir_files_to_backblaze(dir:Path, config):
 
 
 def commit_file(file:Path, commit_msg, logger):
+    # switch to automation branch for committing
+    subprocess.run(["git", "fetch", "origin", "automation"], check=True)
+    subprocess.run(["git", "checkout", "automation"], check=True)
+
     try:
         subprocess.run(["git", "add", str(file)], check=True)
         result = subprocess.run(["git", "diff", "--cached", "--quiet"])
         if result.returncode != 0:
             subprocess.run(["git", "commit", "-m", commit_msg], check=True)
-            subprocess.run(["git", "push origin automation"], check=True)
-
-        logger.info(f"Commit successful: {file.name}")
+            subprocess.run(["git", "push", "origin", "automation"], check=True)
+            logger.info(f"Commit successful: {file.name}")
+        else:
+            logger.info(f"No changes to commit for: {file.name}")
     except Exception as e:
         logger.error(f"Failed to commit {file.name}: {e}")
+    finally:
+        # Always go back to main
+        subprocess.run(["git", "checkout", "main"])
 
 def update_process_state(process_state, country, process_type, process_status="pending", process_error=None):
     process_state.setdefault(country, {
