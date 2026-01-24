@@ -31,7 +31,22 @@ def upload_dir_files_to_backblaze(dir:Path, config):
             
     return {'status':'ok', 'status_type':None, 'data':None}
 
-
+def upload_file_to_backblaze(file:Path, config):
+    s3 = config['s3']
+    logger = config['logger']
+    root = config['root']
+    try:
+        s3.upload_file(
+            str(file), 
+            os.environ["B2_BUCKET_NAME"], 
+            str(file.relative_to(root).as_posix())
+        )
+        logger.info(f"Uploaded {file} to Backblaze successfully")
+        return {'status':'ok', 'status_type':None, 'data':None}
+    except Exception as e:
+        logger.error(f"Failed to upload {file}: {e}")
+        return {'status':'error', 'status_type':'Failed to upload a file from directory', 'data':None}
+    
 def commit_file(file:Path, commit_msg, logger):
     # switch to automation branch for committing
     subprocess.run(["git", "fetch", "origin", "automation"], check=True)
@@ -95,7 +110,7 @@ def donwload_country_data_from_bucket(countries, bucket_name, bucket_dir:Path, s
             
             os.makedirs(save_file.parent, exist_ok=True)
             try:
-                s3.download_file(os.environ["B2_BUCKET_NAME"], file, str(save_file))
+                s3.download_file(bucket_name, file, str(save_file))
                 logger.info(f"      * File '{os.path.basename(file)}' downloaded successfully to '{save_file.name}'")
                 downloaded_files_count += 1
             except Exception as e:
@@ -104,3 +119,9 @@ def donwload_country_data_from_bucket(countries, bucket_name, bucket_dir:Path, s
 
     logger.info(f"  * Number of downloaded files: {downloaded_files_count}/{to_download_total}")
     return downloaded_countries
+
+def download_file_from_bucket(bucket_name, file, s3, save_dir:Path, logger):
+    try:
+        s3.download_file(os.environ["B2_BUCKET_NAME"], file, str(save_dir))
+    except Exception as e:
+        logger.error(f"Failed to donwload {file}")
