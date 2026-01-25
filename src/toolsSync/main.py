@@ -49,10 +49,6 @@ def upload_file_to_backblaze(file:Path, config):
         return {'status':'error', 'status_type':'Failed to upload a file from directory', 'data':None}
     
 def commit_file(file:Path, commit_msg, logger):
-    # switch to automation branch for committing
-    subprocess.run(["git", "fetch", "origin", "automation"], check=True)
-    subprocess.run(["git", "checkout", "automation"], check=True)
-
     try:
         subprocess.run(["git", "add", str(file)], check=True)
         result = subprocess.run(["git", "diff", "--cached", "--quiet"])
