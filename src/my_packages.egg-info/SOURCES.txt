@@ -11,3 +11,5 @@ src/toolsOSM/__init__.py
 src/toolsOSM/overpass.py
 src/toolsPandas/__init__.py
 src/toolsPandas/helpers.py
+src/toolsSync/__init__.py
+src/toolsSync/main.py
