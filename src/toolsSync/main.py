@@ -120,8 +120,8 @@ def donwload_country_data_from_bucket(countries, bucket_name, bucket_dir:Path, s
     logger.info(f"  * Number of downloaded files: {downloaded_files_count}/{to_download_total}")
     return downloaded_countries
 
-def download_file_from_bucket(bucket_name, file, s3, save_dir:Path, logger):
+def download_file_from_bucket(bucket_name, file:Path, s3, save_dir:Path, logger):
     try:
-        s3.download_file(os.environ["B2_BUCKET_NAME"], file, str(save_dir))
+        s3.download_file(bucket_name, str(file.as_posix()), str(save_dir))
     except Exception as e:
         logger.error(f"Failed to donwload {file}")
