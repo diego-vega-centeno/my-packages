@@ -18,6 +18,7 @@ def upload_dir_files_to_backblaze(dir:Path, config):
         # dont delete file, just let the backbalze lifetime file settings delete it
         # if you try to delete a file that doesnt exist, it creates an object application/x-bz-hide-marker
         try:
+            logger.info(f"Uploading {file.relative_to(dir)} ...")
             s3.upload_file(
                 str(file), 
                 os.environ["B2_BUCKET_NAME"], 
