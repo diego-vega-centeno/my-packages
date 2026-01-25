@@ -54,7 +54,7 @@ def commit_file(file:Path, commit_msg, logger):
         result = subprocess.run(["git", "diff", "--cached", "--quiet"])
         if result.returncode != 0:
             subprocess.run(["git", "commit", "-m", commit_msg], check=True)
-            subprocess.run(["git", "push", "origin", "automation"], check=True)
+            subprocess.run(["git", "push", "origin", "main"], check=True)
             logger.info(f"Commit successful: {file.name}")
         else:
             logger.info(f"No changes to commit for: {file.name}")
