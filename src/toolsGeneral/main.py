@@ -205,12 +205,15 @@ def load_dirs(dir:Path, countries=None, extension='*'):
     if countries:
         dirs = [dir for dir in dirs if dir.name in countries]
     for dir in dirs:
-        files = [f for f in dir.glob(f"*.{extension}") if f.is_file()]
-        if len(files) > 1:
-            loaded_data[dir.name] = {}
-            for f in files:
-                loaded_data[dir.name].update(load(f))
-        else:
-            loaded_data[dir.name] = load(files[0])
+        try:
+            files = [f for f in dir.glob(f"*.{extension}") if f.is_file()]
+            if len(files) > 1:
+                loaded_data[dir.name] = {}
+                for f in files:
+                    loaded_data[dir.name].update(load(f))
+            else:
+                loaded_data[dir.name] = load(files[0])
+        except:
+            print(f"Error in dir: {dir}")
         
     return loaded_data
