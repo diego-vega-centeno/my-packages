@@ -58,7 +58,7 @@ def fetch_level_in_chunks(from_lvl, to_lvl, parent_ids, save_dir:Path, chunk_sta
     chunks = [parent_ids[i:i+chunk_size] for i in range(0, len(parent_ids), chunk_size)]
     os.makedirs(save_dir, exist_ok=True)
 
-    next_chunk_index = chunk_start_index
+    next_index = chunk_start_index
     logger.info(f" > processing {from_lvl} to {to_lvl}:")
     logger.info(f"  * ids in level ({from_lvl}): {len(chunk_state[from_lvl]['discovered'])}:")
     logger.info(f"  * current ids to process: {len(parent_ids)}, number of chunks = {len(chunks)}")
@@ -77,14 +77,14 @@ def fetch_level_in_chunks(from_lvl, to_lvl, parent_ids, save_dir:Path, chunk_sta
         
         elements = res["data"].get("elements", [])
         if elements:
-            next_chunk_index = chunk_idx + 1
+            next_index = chunk_idx + 1
             discovered.update(str(elem["id"]) for elem in elements if "id" in elem)
 
         # save state from chunk
         chunk_state[from_lvl]['processed'].update(processed)
         chunk_state[from_lvl]['failed'].update(failed)
 
-        chunk_state[to_lvl]['next_chunk_index'] = next_chunk_index
+        chunk_state[to_lvl]['next_index'] = next_index
         chunk_state[to_lvl]['discovered'].update(discovered)
 
         # save data
@@ -96,7 +96,7 @@ def fetch_level_in_chunks(from_lvl, to_lvl, parent_ids, save_dir:Path, chunk_sta
         
     logger.info(f" > finished lvl {from_lvl}-> processed:{len(processed)}, failed: {len(failed)}, next level discovered: {len(discovered)}")
 
-    return processed, next_chunk_index, failed, discovered
+    return processed, next_index, failed, discovered
 
 def getOSMIDAddsStruct_chunks(tuple, save_dir:Path, chunk_state):
 
@@ -108,7 +108,7 @@ def getOSMIDAddsStruct_chunks(tuple, save_dir:Path, chunk_state):
         chunk_state = {}
         lvls = ['2', *addLvls]
         for lvl in lvls:
-            chunk_state[lvl] = {"processed": set(), "failed": set(), "discovered": set(), "next_chunk_index": 0}
+            chunk_state[lvl] = {"processed": set(), "failed": set(), "discovered": set(), "next_index": 0}
 
     # Get country data and save file
     chunk_state['2']['discovered'] = {id}
@@ -125,12 +125,12 @@ def getOSMIDAddsStruct_chunks(tuple, save_dir:Path, chunk_state):
         pending = [id for id in chunk_state[from_lvl]['discovered'] if id not in chunk_state[from_lvl]['processed']]
 
         while pending and retries_count <= retries_max:
-            processed, next_chunk_index, failed, discovered = fetch_level_in_chunks(
+            processed, next_index, failed, discovered = fetch_level_in_chunks(
                 from_lvl=from_lvl, 
                 to_lvl=to_lvl,
                 parent_ids=pending,
                 save_dir=country_save_dir,
-                chunk_start_index=chunk_state[to_lvl]['next_chunk_index'],
+                chunk_start_index=chunk_state[to_lvl]['next_index'],
                 chunk_state=chunk_state,
                 chunk_size=50
             )
