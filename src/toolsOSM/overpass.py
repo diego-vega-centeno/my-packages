@@ -497,6 +497,7 @@ def normalizeOSM(elems):
         'tags.name:en',
         'tags.alt_name:en',
         'tags.ISO3166-1',
+        "tags.not:ISO3166-1:alpha2",
         'tags.ISO3166-2',
         'tags.is_in:country',
         'tags.ref:nuts',
@@ -504,7 +505,7 @@ def normalizeOSM(elems):
         'tags.ref:nuts:3',
         "tags.addr:country",
         "tags.country_name",
-        "tags.country_id"
+        "tags.country_id",
     ]
 
     existing_cols = df.columns
@@ -557,8 +558,8 @@ def osm_basic_test(df_input):
     #* sort the dataframe, from country to lower levels
     df = df_input.copy()
     df = df.sort_values('tags.admin_level', key=lambda col: col.astype(int)) 
-
-    cntrRow = df["tags.ISO3166-1"].notna()
+    print(df.columns)
+    cntrRow = df["tags.not:ISO3166-1:alpha2"].notna()
     cntrISO = df[cntrRow].iloc[0]["tags.ISO3166-1"]
     cntrName = df[cntrRow].iloc[0]["tags.country_name"]
     cntr_id = df[cntrRow].iloc[0]["id"]
