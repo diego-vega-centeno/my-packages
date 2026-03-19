@@ -118,6 +118,7 @@ def donwload_country_data_from_bucket(countries, bucket_name, bucket_dir:Path, s
     return downloaded_countries
 
 def download_file_from_bucket(bucket_name, file:Path, s3, save_dir:Path, logger):
+    os.makedirs(os.path.dirname(save_dir), exist_ok=True)
     try:
         s3.download_file(bucket_name, str(file.as_posix()), str(save_dir))
     except Exception as e:
