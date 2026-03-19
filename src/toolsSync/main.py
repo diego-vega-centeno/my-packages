@@ -122,3 +122,4 @@ def download_file_from_bucket(bucket_name, file:Path, s3, save_dir:Path, logger)
         s3.download_file(bucket_name, str(file.as_posix()), str(save_dir))
     except Exception as e:
         logger.error(f"Failed to donwload {file}")
+        logger.error(e)
