@@ -116,7 +116,6 @@ def getOSMIDAddsStruct_chunks(tuple, save_dir:Path, chunk_state):
     # get levels with retry
     logger.info(" > fetching country base level 2 ...")
     country_osm_data = getOSMIDAddsStruct(id, [-1,-1,-1])
-    print(country_osm_data)
     logger.info(" > fetching finished")
     tgm.dump(country_save_dir / f'lvl_2_chunk_0_rawOSMRes.json', country_osm_data['data'])
 
