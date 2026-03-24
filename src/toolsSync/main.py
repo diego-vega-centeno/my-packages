@@ -75,11 +75,12 @@ def update_process_state(process_state, country, process_type, process_status="p
 
 def donwload_country_data_from_bucket(countries, bucket_name, bucket_dir:Path, save_dir:Path, s3, logger):
 
-    list_obj_response = s3.list_objects_v2(Bucket=bucket_name, Prefix=bucket_dir.as_posix())
+    # list_obj_response = s3.list_objects_v2(Bucket=bucket_name, Prefix=bucket_dir.as_posix())
+    list_obj_response_contents = get_bucket_contents(s3, bucket_name, bucket_dir.as_posix)
 
-    list_obj_response_contents = list_obj_response.get('Contents', [])
     objects_list = [(obj['Key']) for obj in list_obj_response_contents]
     all_countries_in_b2 = tgm.delete_duplicates([Path(obj['Key']).parent.name  for obj in list_obj_response_contents])
+    logger.info(f"  * {all_countries_in_b2}")
 
     logger.info(f"  * Countries to get data: {len(countries)}")
     to_download_countries_in_b2 = tgm.intersection(countries, all_countries_in_b2)
@@ -124,3 +125,13 @@ def download_file_from_bucket(bucket_name, file:Path, s3, save_dir:Path, logger)
     except Exception as e:
         logger.error(f"Failed to donwload {file}")
         logger.error(e)
+
+
+def get_bucket_contents(s3, bucket_name, prefix):
+    paginator = s3.get_paginator("list_objects_v2")
+    pages = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
+
+    all_objects = []
+    for page in pages:
+        all_objects.extend(page.get("Contents", []))
+    return all_objects
