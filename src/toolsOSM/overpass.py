@@ -144,9 +144,9 @@ def getOSMIDAddsStruct_chunks(tuple, save_dir:Path, chunk_state):
             raise Exception("max_number_retries")
 
     try:
-        fetch_level_with_retry('2', '4', chunk_state)
-        fetch_level_with_retry('4', '6', chunk_state)
-        fetch_level_with_retry('6', '8', chunk_state)
+        fetch_level_with_retry(lvls[0], lvls[1], chunk_state)
+        fetch_level_with_retry(lvls[1], lvls[2], chunk_state)
+        fetch_level_with_retry(lvls[2], lvls[3], chunk_state)
 
         res = {'status':'ok', 'status_type': None, 'data':chunk_state}
     except Exception as e:
@@ -554,15 +554,16 @@ def osm_query_safe_wrapper(query, max_retries=5):
 
 
 def osm_basic_test(df_input):
-
     #* sort the dataframe, from country to lower levels
     df = df_input.copy()
     df = df.sort_values('tags.admin_level', key=lambda col: col.astype(int)) 
     print(df.columns)
-    cntrRow = df["tags.not:ISO3166-1:alpha2"].notna()
-    cntrISO = df[cntrRow].iloc[0]["tags.ISO3166-1"]
-    cntrName = df[cntrRow].iloc[0]["tags.country_name"]
-    cntr_id = df[cntrRow].iloc[0]["id"]
+    cntrDict = df[df["tags.admin_level"] == '2'].iloc[0].to_dict()
+    cntrISO = cntrDict["tags.ISO3166-1"]
+    cntrName = cntrDict["tags.country_name"]
+    cntr_id = cntrDict["id"]
+    
+    first_level_num = sorted(df['tags.admin_level'].to_list())[1]
 
     #* some elements have missing name
     miss = df[df["tags.name"].isna()][['id', 'tags.parent_id', 'tags.country_id']].apply(tuple,axis=1).to_list()
@@ -625,7 +626,7 @@ def osm_basic_test(df_input):
 
         if valid_tests < MIN_TESTS:
             # Not enough info → parent fallback or NA
-            if parentID and isInCountry.get(parentID) is True and row.get('tags.admin_level') != '4':
+            if parentID and isInCountry.get(parentID) is True and row.get('tags.admin_level') != first_level_num:
                 in_country.append((osmID, parentID, cntr_id))
                 isInCountry[osmID] = True
             else:
