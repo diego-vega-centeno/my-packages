@@ -76,11 +76,10 @@ def update_process_state(process_state, country, process_type, process_status="p
 def donwload_country_data_from_bucket(countries, bucket_name, bucket_dir:Path, save_dir:Path, s3, logger):
 
     # list_obj_response = s3.list_objects_v2(Bucket=bucket_name, Prefix=bucket_dir.as_posix())
-    list_obj_response_contents = get_bucket_contents(s3, bucket_name, bucket_dir.as_posix)
+    list_obj_response_contents = get_bucket_contents(s3, bucket_name, bucket_dir.as_posix())
 
     objects_list = [(obj['Key']) for obj in list_obj_response_contents]
     all_countries_in_b2 = tgm.delete_duplicates([Path(obj['Key']).parent.name  for obj in list_obj_response_contents])
-    logger.info(f"  * {all_countries_in_b2}")
 
     logger.info(f"  * Countries to get data: {len(countries)}")
     to_download_countries_in_b2 = tgm.intersection(countries, all_countries_in_b2)
