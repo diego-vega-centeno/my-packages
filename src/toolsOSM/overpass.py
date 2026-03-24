@@ -557,12 +557,12 @@ def osm_basic_test(df_input):
     #* sort the dataframe, from country to lower levels
     df = df_input.copy()
     df = df.sort_values('tags.admin_level', key=lambda col: col.astype(int)) 
-    print(df.columns)
+    logger.info(f"* Columns: {df.columns}")
     cntrDict = df[df["tags.admin_level"] == '2'].iloc[0].to_dict()
     cntrISO = cntrDict["tags.ISO3166-1"]
     cntrName = cntrDict["tags.country_name"]
     cntr_id = cntrDict["id"]
-    
+
     admin_level_nums = sorted(df['tags.admin_level'].to_list())
     if(len(admin_level_nums) < 2):
         return {    
