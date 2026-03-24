@@ -563,8 +563,17 @@ def osm_basic_test(df_input):
     cntrName = cntrDict["tags.country_name"]
     cntr_id = cntrDict["id"]
     
-    first_level_num = sorted(df['tags.admin_level'].to_list())[1]
-
+    admin_level_nums = sorted(df['tags.admin_level'].to_list())
+    if(len(admin_level_nums) < 2):
+        return {    
+        "missing_name": [],
+        "test_tags_leak": [],
+        "test_tags_in_country": [],
+        'test_tags_NA_result': [],
+        }
+    
+    first_level_num = admin_level_nums[1]
+    
     #* some elements have missing name
     miss = df[df["tags.name"].isna()][['id', 'tags.parent_id', 'tags.country_id']].apply(tuple,axis=1).to_list()
 
